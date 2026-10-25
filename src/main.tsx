@@ -6,7 +6,8 @@ import App from './App'
 import { applyTheme } from './lib/theme'
 
 applyTheme()
-if (import.meta.env.PROD) registerSW({ immediate: true })
+// 原生壳（app:// 协议）里 WKWebView 不支持 Service Worker，跳过注册；网页端照常
+if (import.meta.env.PROD && !location.protocol.startsWith('app')) registerSW({ immediate: true })
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

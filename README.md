@@ -68,6 +68,13 @@ python3 scripts/export-legacy.py "/path/to/expermit record/data/expermit.db"
 - 导入的实验放在「从旧版导入」项目里。
 - 试剂消耗记录会导入，但不勾选，避免重复扣库存。
 
+## 打包成桌面 / 手机应用
+
+- **macOS**：`./native/mac/build.sh` 一键构建出 `native/mac/ExPermit.app`（系统 WebKit 原生壳，约 1.5MB，无需安装任何依赖）。双击运行，可拖进「应用程序」。命令行跑 `ExPermit.app/Contents/MacOS/ExPermit --selftest` 可做无头自检。
+- **iOS**：`./native/ios/build.sh` 会把网页拷进 Xcode 工程（`native/ios/ExPermit.xcodeproj`）。本机没装 Xcode 时只准备资源并打印操作说明；装好 Xcode 后打开工程、在 Signing 里选自己的 Apple ID（免费账号即可），连手机按 ⌘R 安装。免费账号安装的应用 7 天过期，重新运行即可。
+- 不装 Xcode 的替代方案：iPhone 用 Safari 打开线上地址 → 分享 → 添加到主屏幕，即可全屏离线使用（PWA）。
+- 两个壳都用 `app://local` 协议加载本地网页：数据存在应用自己的沙盒里，和浏览器版互不相通；GitHub 同步在壳内可用（已实测）。
+
 ## 技术
 
 React 19 + TypeScript + Vite，Tailwind CSS 4，Radix UI，Dexie（IndexedDB），Tiptap，dnd-kit，cmdk。路由用 hash 模式，构建产物是纯静态站点，并带 PWA 离线缓存。

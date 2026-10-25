@@ -6,3 +6,7 @@ dev-dist
 .env*
 coverage
 .shots
+
+# 原生壳构建产物
+native/mac/ExPermit.app
+native/ios/ExPermit/www
