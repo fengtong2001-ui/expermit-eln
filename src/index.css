@@ -1,0 +1,119 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  --color-brand-50: #f0fdfa;
+  --color-brand-100: #ccfbf1;
+  --color-brand-200: #99f6e4;
+  --color-brand-300: #5eead4;
+  --color-brand-400: #2dd4bf;
+  --color-brand-500: #14b8a6;
+  --color-brand-600: #0d9488;
+  --color-brand-700: #0f766e;
+  --color-brand-800: #115e59;
+  --color-brand-900: #134e4a;
+
+  --shadow-pop: 0 10px 38px -10px rgb(15 23 42 / 0.25), 0 10px 20px -15px rgb(15 23 42 / 0.2);
+  --animate-in: fade-in 140ms ease-out;
+  --animate-pop: pop-in 160ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(4px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-200;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  ::selection {
+    @apply bg-brand-200/70 dark:bg-brand-700/60;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-500;
+  }
+  input[type='number']::-webkit-inner-spin-button {
+    opacity: 0.4;
+  }
+}
+
+@layer components {
+  .field {
+    @apply h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-800 placeholder:text-slate-400 transition
+      hover:border-slate-300 focus:border-brand-500 focus:ring-3 focus:ring-brand-500/15 focus:outline-none
+      dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:border-slate-600;
+  }
+  textarea.field {
+    @apply h-auto py-2 leading-relaxed;
+  }
+  /* 表格单元格里的无边框输入 */
+  .cell {
+    @apply h-9 w-full min-w-0 rounded-md border border-transparent bg-transparent px-2 text-sm text-slate-800 placeholder:text-slate-300
+      hover:border-slate-200 focus:border-brand-500 focus:bg-white focus:ring-3 focus:ring-brand-500/15 focus:outline-none
+      dark:text-slate-100 dark:placeholder:text-slate-600 dark:hover:border-slate-700 dark:focus:bg-slate-900;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400;
+  }
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-slate-200 bg-slate-50 px-1 font-sans text-[11px] text-slate-500
+      dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400;
+  }
+}
+
+/* —— 富文本 —— */
+.prose-eln {
+  @apply text-[15px] leading-7 text-slate-800 dark:text-slate-200;
+}
+.prose-eln > * + * {
+  margin-top: 0.5em;
+}
+.prose-eln h1 { @apply mt-4 text-2xl font-semibold tracking-tight; }
+.prose-eln h2 { @apply mt-4 text-xl font-semibold tracking-tight; }
+.prose-eln h3 { @apply mt-3 text-base font-semibold; }
+.prose-eln ul { @apply list-disc pl-6; }
+.prose-eln ol { @apply list-decimal pl-6; }
+.prose-eln li > p { margin: 0; }
+.prose-eln blockquote { @apply border-l-3 border-slate-300 pl-4 text-slate-600 dark:border-slate-600 dark:text-slate-400; }
+.prose-eln code { @apply rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[13px] text-rose-600 dark:bg-slate-800 dark:text-rose-300; }
+.prose-eln pre { @apply rounded-lg bg-slate-900 p-4 font-mono text-[13px] text-slate-100; }
+.prose-eln pre code { @apply bg-transparent p-0 text-inherit; }
+.prose-eln hr { @apply my-4 border-slate-200 dark:border-slate-700; }
+.prose-eln a { @apply text-brand-700 underline underline-offset-2 dark:text-brand-300; }
+.prose-eln mark { @apply rounded bg-amber-100 px-0.5 dark:bg-amber-500/30 dark:text-inherit; }
+.prose-eln ul[data-type='taskList'] { @apply list-none pl-1; }
+.prose-eln ul[data-type='taskList'] li { @apply flex items-start gap-2; }
+.prose-eln ul[data-type='taskList'] li > label { @apply mt-1 select-none; }
+.prose-eln ul[data-type='taskList'] li > label input { @apply size-4 accent-brand-600; }
+.prose-eln ul[data-type='taskList'] li[data-checked='true'] > div { @apply text-slate-500 line-through; }
+.ProseMirror { outline: none; min-height: 1.75rem; }
+.ProseMirror p.is-editor-empty:first-child::before,
+.ProseMirror .is-empty::before {
+  content: attr(data-placeholder);
+  @apply pointer-events-none float-left h-0 text-slate-400 dark:text-slate-500;
+}
+
+/* 深色模式下次要文字整体提亮一级，保证对比度 */
+.dark .text-slate-500 { color: var(--color-slate-400); }
+.dark .text-slate-400 { color: var(--color-slate-500); }
+
+/* 打印：只留正文 */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+  .print-break { break-inside: avoid; }
+}
