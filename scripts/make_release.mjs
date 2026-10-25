@@ -60,10 +60,14 @@ if (start < 0) throw new Error(`CHANGELOG.md 里没有 ## ${ver} 段落`)
 const next = changelog.indexOf('\n## ', start + 1)
 const body = changelog.slice(start, next > 0 ? next : undefined).trim()
 
-const list = await api('releases/tags/v' + ver)
-let rel
-if (list) {
-  rel = list
+// 已存在同 tag 的 release 则复用（重发场景）；404 = 不存在，正常走新建
+let rel = null
+try {
+  rel = await api('releases/tags/v' + ver)
+} catch (e) {
+  if (!String(e).includes('-> 404')) throw e
+}
+if (rel) {
   console.log(`复用已有 release v${ver}`)
 } else {
   rel = await api('releases', { method: 'POST', body: JSON.stringify({ tag_name: `v${ver}`, name: `v${ver}`, body, target_commitish: 'main' }) })
