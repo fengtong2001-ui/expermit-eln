@@ -1,5 +1,6 @@
 #!/bin/bash
 # 构建 macOS 原生壳：dist → www 资源，swiftc 编译，组装 ExPermit.app，ad-hoc 签名
+# 说明：显式指向 Command Line Tools，避免 /usr/bin shim 在 Xcode 许可未同意时被挡
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -11,7 +12,9 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 echo "—— 编译 Swift 壳 ——"
-swiftc -O \
+export DEVELOPER_DIR=/Library/Developer/CommandLineTools
+export SDKROOT="$(ls -d /Library/Developer/CommandLineTools/SDKs/MacOSX*.sdk | sort -V | tail -1)"
+/Library/Developer/CommandLineTools/usr/bin/swiftc -O \
   -target arm64-apple-macos12.0 \
   -framework AppKit -framework WebKit \
   -o "$APP/Contents/MacOS/ExPermit" \
@@ -44,4 +47,5 @@ EOF
 codesign --force --sign - "$APP"
 echo "✓ 构建完成：$APP"
 echo "  自检：$APP/Contents/MacOS/ExPermit --selftest"
+echo "  首次配置同步：$APP/Contents/MacOS/ExPermit --sync '<配置JSON>'"
 echo "  安装：拖到 /Applications 或直接双击运行"
