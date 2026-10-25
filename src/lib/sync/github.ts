@@ -23,6 +23,7 @@ interface ContentsFile {
 export class GithubBackend implements SyncBackend {
   private base: string
   private headers: Record<string, string>
+  private resolvedRepo: string | null = null
 
   constructor(private cfg: Extract<SyncConfig, { provider: 'github' }>, apiBase?: string) {
     this.base = githubApiBase(apiBase)
@@ -33,8 +34,21 @@ export class GithubBackend implements SyncBackend {
     }
   }
 
-  private url(key: string) {
-    const p = [this.cfg.repo.replace(/^\/+|\/+$/g, ''), 'contents', this.cfg.path.replace(/^\/+|\/+$/g, ''), ...key.split('/')].filter(Boolean)
+  /** 允许只填仓库名（不含 owner）：用令牌查一次 /user 补全 */
+  private async repo(): Promise<string> {
+    if (this.resolvedRepo) return this.resolvedRepo
+    let repo = this.cfg.repo.replace(/^\/+|\/+$/g, '')
+    if (!repo.includes('/')) {
+      const res = await fetch(`${this.base}/user`, { headers: this.headers })
+      if (!res.ok) throw new Error('令牌无效（查不到你的 GitHub 账号），请检查是否粘贴完整。')
+      repo = `${(await res.json()).login}/${repo}`
+    }
+    this.resolvedRepo = repo
+    return repo
+  }
+
+  private async url(key: string) {
+    const p = [await this.repo(), 'contents', this.cfg.path.replace(/^\/+|\/+$/g, ''), ...key.split('/')].filter(Boolean)
     return `${this.base}/repos/${p.join('/')}`
   }
 
@@ -66,7 +80,7 @@ export class GithubBackend implements SyncBackend {
   async get(key: string): Promise<SyncObject | null> {
     let res: Response
     try {
-      res = await this.req(this.url(key))
+      res = await this.req(await this.url(key))
     } catch (e) {
       if (e instanceof Error && e.message === 'NOT_FOUND') {
         // 尝试分片形式
@@ -83,11 +97,11 @@ export class GithubBackend implements SyncBackend {
   }
 
   private async getAsChunks(key: string): Promise<SyncObject> {
-    const m = (await this.req(this.url(`${key}/manifest`)).then((r) => r.json())) as ContentsFile
+    const m = (await this.req(await this.url(`${key}/manifest`)).then((r) => r.json())) as ContentsFile
     const meta = JSON.parse(new TextDecoder().decode(decodeB64(m.content ?? ''))) as { parts: number }
     const parts: Uint8Array[] = []
     for (let i = 1; i <= meta.parts; i++) {
-      const f = (await this.req(this.url(`${key}/part-${String(i).padStart(4, '0')}`)).then((r) => r.json())) as ContentsFile
+      const f = (await this.req(await this.url(`${key}/part-${String(i).padStart(4, '0')}`)).then((r) => r.json())) as ContentsFile
       parts.push(decodeB64(f.content ?? ''))
     }
     const total = parts.reduce((s, p) => s + p.length, 0)
@@ -105,13 +119,13 @@ export class GithubBackend implements SyncBackend {
     // 已存在则需要 sha 才能更新
     let sha: string | undefined = knownEtag
     if (!sha) {
-      const cur = await this.req(this.url(key)).then(
+      const cur = await this.req(await this.url(key)).then(
         (r) => r.json() as Promise<ContentsFile>,
         () => null,
       )
       sha = (cur as ContentsFile | null)?.sha
     }
-    const res = await this.req(this.url(key), {
+    const res = await this.req(await this.url(key), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -132,7 +146,7 @@ export class GithubBackend implements SyncBackend {
       await this.put(`${key}/part-${String(i).padStart(4, '0')}`, slice)
     }
     // 先写新分片，再更新 manifest（旧分片多余的留在原地，下次覆盖）
-    const res = await this.req(this.url(`${key}/manifest`), {
+    const res = await this.req(await this.url(`${key}/manifest`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -148,11 +162,11 @@ export class GithubBackend implements SyncBackend {
   async delete(key: string, etag?: string): Promise<void> {
     // 分片对象：清 manifest 与所有分片（最多尝试 64 片）
     try {
-      const m = await this.req(this.url(`${key}/manifest`))
+      const m = await this.req(await this.url(`${key}/manifest`))
       const mf = (await m.json()) as ContentsFile
       const meta = JSON.parse(new TextDecoder().decode(decodeB64(mf.content ?? ''))) as { parts: number }
       for (let i = 1; i <= Math.min(meta.parts, 64); i++) await this.delete(`${key}/part-${String(i).padStart(4, '0')}`).catch(() => {})
-      await this.req(this.url(`${key}/manifest`), {
+      await this.req(await this.url(`${key}/manifest`), {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'ExPermit 清理', sha: mf.sha }),
@@ -166,11 +180,11 @@ export class GithubBackend implements SyncBackend {
     }
     let sha = etag
     if (!sha) {
-      const cur = await this.req(this.url(key)).then((r) => r.json() as Promise<ContentsFile>, () => null)
+      const cur = await this.req(await this.url(key)).then((r) => r.json() as Promise<ContentsFile>, () => null)
       sha = (cur as ContentsFile | null)?.sha
       if (!sha) return
     }
-    await this.req(this.url(key), {
+    await this.req(await this.url(key), {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: 'ExPermit 清理', sha }),
@@ -179,13 +193,14 @@ export class GithubBackend implements SyncBackend {
 
   async test(): Promise<void> {
     // 用仓库元信息验证：token 有效 + 仓库存在 + 可见
-    const res = await fetch(`${this.base}/repos/${this.cfg.repo.replace(/^\/+|\/+$/g, '')}`, { headers: this.headers })
-    if (res.status === 404) throw new Error(`找不到仓库「${this.cfg.repo}」。请确认名称（owner/repo）正确，且令牌有这个私有仓库的权限。`)
+    const fullName = await this.repo()
+    const res = await fetch(`${this.base}/repos/${fullName}`, { headers: this.headers })
+    if (res.status === 404) throw new Error(`找不到仓库「${fullName}」。请确认已按向导建好仓库，且令牌授权了这个仓库。`)
     if (res.status === 401 || res.status === 403) throw new Error('令牌无效或没有权限。请检查令牌是否过期、是否勾选了 Contents 读写。')
     if (!res.ok) throw new Error(`GitHub 返回 ${res.status}`)
     const repo = (await res.json()) as { private?: boolean; full_name?: string }
     if (repo.private === false)
-      throw new Error(`仓库「${repo.full_name}是公开的，实验数据会泄露。请先把仓库转为私有（Settings → Danger Zone），再配置同步。`)
+      throw new Error(`仓库「${repo.full_name}」是公开的，实验数据会泄露。请先把仓库转为私有（Settings → Danger Zone），再配置同步。`)
   }
 }
 
