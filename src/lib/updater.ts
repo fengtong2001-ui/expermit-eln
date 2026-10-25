@@ -44,20 +44,29 @@ export function markChecked() {
   localStorage.setItem(LAST_KEY, String(Date.now()))
 }
 
-/** 有新版本时的完整升级流程：下载（带进度）→ 静默安装重启 */
-export async function downloadAndInstall(url: string) {
+/** 有新版本时的完整升级流程：优先热更新（秒级，走稳定通道）；壳变更或热更失败回落完整安装包；再失败才打开下载页 */
+export async function downloadAndInstall(setupUrl: string | null, version: string) {
   if (!desktop) {
     window.open(`https://github.com/${REPO}/releases/latest`, '_blank')
     return
   }
   const id = toast.loading('正在下载更新…', { duration: Infinity })
-  const off = desktop.onUpdateProgress((pct) => toast.loading(`正在下载更新… ${pct}%`, { id, duration: Infinity }))
+  const off = desktop.onUpdateProgress((pct) => toast.loading(`正在更新… ${pct}%`, { id, duration: Infinity }))
   try {
-    const file = await desktop.downloadUpdate(url)
+    // 首选：网页资源热更新（走 codeload 稳定通道，下载完成自动重启生效）
+    try {
+      const r = await desktop.hotUpdate(version)
+      if (r?.ok) return
+      if (r?.needInstaller) toast.loading('此版本更新了程序本体，正在下载安装包…', { id, duration: Infinity })
+    } catch {
+      toast.loading('正在下载完整安装包…', { id, duration: Infinity })
+    }
+    if (!setupUrl) throw new Error('no setup url')
+    const file = await desktop.downloadUpdate(setupUrl)
     toast.loading('下载完成，正在安装…', { id, duration: 5000 })
     await desktop.installUpdate(file)
   } catch {
-    toast.error('下载失败，已为你打开下载页面', { id, duration: 10000 })
+    toast.error('更新下载失败，已打开下载页面', { id, duration: 10000 })
     void window.open(`https://github.com/${REPO}/releases/latest`, '_blank')
   } finally {
     off()
@@ -72,9 +81,7 @@ export async function startupUpdateCheck() {
   if (!info || !isNewer(info.version)) return
   toast(`新版本 ${info.version} 可用`, {
     duration: 30000,
-    action: info.setupUrl
-      ? { label: '下载并安装', onClick: () => void downloadAndInstall(info.setupUrl!) }
-      : { label: '查看', onClick: () => void window.open(`https://github.com/${REPO}/releases/latest`, '_blank') },
+    action: { label: '更新', onClick: () => void downloadAndInstall(info.setupUrl, info.version) },
   })
 }
 

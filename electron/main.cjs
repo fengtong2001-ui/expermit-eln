@@ -7,6 +7,39 @@ const path = require('node:path')
 const fs = require('node:fs')
 const { spawn } = require('node:child_process')
 const { pathToFileURL } = require('node:url')
+const { unzipSync } = require('fflate')
+
+// —— 应用内热更新（网页资源层）——
+// 本机网络对 github.com 的 release 下载域不通（TLS reset），但 codeload.github.com（仓库打包域）可用：
+// 每个版本把构建好的网页资源包 release-assets/www-<版本>.zip 提交进仓库，客户端拉 tag zipball 解包替换。
+// 壳（electron/*.cjs）有实质变更时升级 SHELL_CAP 并让 shell-min.json 要求新壳 → 回落完整安装包。
+const SHELL_CAP = '0.1.4'
+const cmpVer = (a, b) => {
+  const pa = String(a).split('.').map(Number)
+  const pb = String(b).split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0) ? 1 : -1
+  }
+  return 0
+}
+
+/** 启动早期把 update-staged 原子切换为 www（此刻资源尚未加载，无文件锁） */
+function applyStagedUpdate() {
+  if (!app.isPackaged) return
+  try {
+    const res = process.resourcesPath
+    const staged = path.join(res, 'update-staged')
+    if (!fs.existsSync(staged)) return
+    const www = path.join(res, 'www')
+    const old = path.join(res, 'www.old')
+    if (fs.existsSync(old)) fs.rmSync(old, { recursive: true, force: true })
+    if (fs.existsSync(www)) fs.renameSync(www, old)
+    fs.renameSync(staged, www)
+    fs.rmSync(old, { recursive: true, force: true })
+  } catch {
+    /* 切换失败：保留现有资源，下次更新重试 */
+  }
+}
 
 // app:// 需在 ready 前注册为 standard+secure，localStorage / IndexedDB / fetch 才可用
 protocol.registerSchemesAsPrivileged([
@@ -60,6 +93,39 @@ function applyCustomDataDir() {
 
 function registerIpc() {
   ipcMain.handle('app:info', () => ({ version: app.getVersion(), dataDir: app.getPath('userData') }))
+
+  // 热更新：拉 tag zipball（codeload，稳定通道）→ 解出资源包 → staged → 重启生效
+  ipcMain.handle('update:hot', async (event, tag) => {
+    const ver = String(tag ?? '').replace(/[^0-9A-Za-z._-]/g, '')
+    if (!ver || !app.isPackaged) throw new Error('bad tag')
+    const res = await net.fetch(`https://codeload.github.com/fengtong2001-ui/expermit-eln/zip/refs/tags/v${ver}`, { redirect: 'follow' })
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
+    event.sender.send('update:progress', 30)
+    const zip = unzipSync(new Uint8Array(await res.arrayBuffer()))
+    const keys = Object.keys(zip)
+    const wwwKey = keys.find((k) => k.includes(`/release-assets/www-${ver}.zip`))
+    if (!wwwKey) throw new Error('资源包缺失')
+    const shellKey = keys.find((k) => k.endsWith('/release-assets/shell-min.json'))
+    if (shellKey) {
+      const need = JSON.parse(Buffer.from(zip[shellKey]).toString('utf8')).shellFrom ?? '0'
+      if (cmpVer(need, SHELL_CAP) > 0) return { needInstaller: true }
+    }
+    const inner = unzipSync(zip[wwwKey])
+    event.sender.send('update:progress', 70)
+    const staged = path.join(process.resourcesPath, 'update-staged')
+    fs.rmSync(staged, { recursive: true, force: true })
+    fs.mkdirSync(staged, { recursive: true })
+    for (const name of Object.keys(inner)) {
+      if (name.endsWith('/') || name.includes('__MACOSX')) continue
+      const out = path.join(staged, name)
+      fs.mkdirSync(path.dirname(out), { recursive: true })
+      fs.writeFileSync(out, inner[name])
+    }
+    event.sender.send('update:progress', 100)
+    app.relaunch()
+    app.exit(0)
+    return { ok: true }
+  })
 
   // 下载新版本安装包（只信 GitHub 域名），流式落盘并回报进度
   ipcMain.handle('update:download', async (event, url) => {
@@ -209,6 +275,8 @@ function startApp() {
 if (selftest) {
   // 自检独立跑，不与常驻实例抢锁；userData 也用一次性目录，避免与已安装实例的数据目录锁冲突
   app.setPath('userData', path.join(app.getPath('temp'), `expermit-selftest-${Date.now()}`))
+  applyCustomDataDir()
+  applyStagedUpdate()
   app.whenReady().then(startApp)
 } else {
   const gotLock = app.requestSingleInstanceLock()
@@ -219,6 +287,7 @@ if (selftest) {
       if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus() }
     })
     applyCustomDataDir()
+    applyStagedUpdate()
     app.whenReady().then(startApp)
   }
 }

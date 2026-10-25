@@ -210,9 +210,7 @@ function AboutSection() {
     }
     toast(`新版本 ${info.version} 可用`, {
       duration: 30000,
-      action: info.setupUrl
-        ? { label: '下载并安装', onClick: () => void downloadAndInstall(info.setupUrl!) }
-        : { label: '查看', onClick: () => void window.open('https://github.com/fengtong2001-ui/expermit-eln/releases/latest', '_blank') },
+      action: { label: '更新', onClick: () => void downloadAndInstall(info.setupUrl, info.version) },
     })
   }
 
