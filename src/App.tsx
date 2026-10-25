@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { createHashRouter, RouterProvider } from 'react-router'
-import { Toaster } from 'sonner'
+import { Toaster, toast } from 'sonner'
 import { Shell } from './components/Shell'
 import { TooltipProvider } from './components/ui'
 import { ConfirmHost } from './components/confirm'
@@ -42,6 +42,21 @@ const router = createHashRouter([
 export default function App() {
   const theme = useTheme()
   useEffect(() => {
+    // 一次性导入同步配置：链接形如 ?setup=<base64url 的配置 JSON>
+    const m = /setup=([A-Za-z0-9_-]+)/.exec(location.href)
+    if (m) {
+      try {
+        const bin = atob(m[1].replace(/-/g, '+').replace(/_/g, '/'))
+        const cfg = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0))))
+        if (cfg?.provider === 'github' || cfg?.provider === 'webdav') {
+          localStorage.setItem('eln-sync-config', JSON.stringify(cfg))
+          history.replaceState(null, '', location.href.replace(/([?&])setup=[A-Za-z0-9_-]+&?/, '$1').replace(/[?&]$/, ''))
+          toast.success('同步配置已导入，开始同步')
+        }
+      } catch {
+        toast.error('配置链接无效')
+      }
+    }
     void ensureSeed()
     void purgeExpiredTrash()
     void navigator.storage?.persist?.()
