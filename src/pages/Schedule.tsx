@@ -5,6 +5,8 @@ import { Check, ChevronLeft, ChevronRight, FlaskConical, Plus, Trash2 } from 'lu
 import { toast } from 'sonner'
 import { db } from '@/lib/db'
 import { addSchedule, deleteSchedule, updateSchedule } from '@/lib/repo'
+import { schedDone, toggleScheduleDone } from '@/lib/scheduleDone'
+import { pushUndo, undoById } from '@/lib/undo'
 import { useExperiments } from '@/lib/hooks'
 import { cn, todayStr } from '@/lib/util'
 import { ui } from '@/lib/ui-store'
@@ -131,7 +133,11 @@ export function SchedulePage() {
                           key={s.id}
                           className={cn(
                             'block truncate rounded px-1 py-px text-[11px]',
-                            s.done ? 'text-slate-500 line-through' : s.experimentId ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+                            schedDone(s, s.experimentId ? expMap.get(s.experimentId) : undefined)
+                              ? 'text-slate-500 line-through'
+                              : s.experimentId
+                                ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300'
+                                : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
                           )}
                         >
                           {s.title}
@@ -139,7 +145,19 @@ export function SchedulePage() {
                       ))}
                       {list.length > 3 && <span className="block px-1 text-[10px] text-slate-500">还有 {list.length - 3} 项</span>}
                     </span>
-                    {list.length > 0 && <span className="flex gap-0.5 sm:hidden">{list.slice(0, 4).map((s) => <span key={s.id} className={cn('size-1.5 rounded-full', s.done ? 'bg-slate-300' : 'bg-brand-500')} />)}</span>}
+                    {list.length > 0 && (
+                      <span className="flex gap-0.5 sm:hidden">
+                        {list.slice(0, 4).map((s) => (
+                          <span
+                            key={s.id}
+                            className={cn(
+                              'size-1.5 rounded-full',
+                              schedDone(s, s.experimentId ? expMap.get(s.experimentId) : undefined) ? 'bg-slate-300' : 'bg-brand-500',
+                            )}
+                          />
+                        ))}
+                      </span>
+                    )}
                   </button>
                 )
               })}
@@ -161,20 +179,24 @@ export function SchedulePage() {
           <ul className="space-y-1">
             {dayItems.map((s) => {
               const e = s.experimentId ? expMap.get(s.experimentId) : undefined
+              const isDone = schedDone(s, e)
               return (
                 <li key={s.id} className="group flex items-start gap-2.5 rounded-lg px-1.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <button
-                    onClick={() => updateSchedule(s.id, { done: !s.done })}
-                    aria-label={s.done ? '标为未完成' : '标为完成'}
-                    className={cn('mt-0.5 flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-full border', s.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 dark:border-slate-600')}
+                    onClick={() => toggleScheduleDone(s, e)}
+                    aria-label={isDone ? '标为未完成' : '标为完成'}
+                    className={cn('mt-0.5 flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-full border', isDone ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 dark:border-slate-600')}
                   >
-                    {s.done && <Check className="size-3" strokeWidth={3} />}
+                    {isDone && <Check className="size-3" strokeWidth={3} />}
                   </button>
                   <div className="min-w-0 flex-1">
                     <input
                       defaultValue={s.title}
                       onBlur={(ev) => ev.target.value.trim() && ev.target.value !== s.title && updateSchedule(s.id, { title: ev.target.value.trim() })}
-                      className={cn('w-full bg-transparent text-[13px] outline-none', s.done && 'text-slate-500 line-through')}
+                      className={cn(
+                        'w-full rounded-md border border-slate-200 bg-transparent px-1.5 py-0.5 text-[13px] outline-none hover:border-slate-300 focus:border-brand-500 dark:border-slate-700 dark:hover:border-slate-600',
+                        isDone && 'text-slate-500 line-through',
+                      )}
                       aria-label="日程内容"
                     />
                     <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -190,7 +212,8 @@ export function SchedulePage() {
                     aria-label="删除日程"
                     onClick={async () => {
                       await deleteSchedule(s.id)
-                      toast('已删除日程', { action: { label: '撤销', onClick: () => void db.schedules.add(s) } })
+                      const uid = pushUndo('删除日程', () => void updateSchedule(s.id, { deletedAt: null }))
+                      toast('已删除日程', { action: { label: '撤销', onClick: () => undoById(uid) } })
                     }}
                     className="cursor-pointer rounded p-1 text-slate-400 opacity-0 group-hover:opacity-100 hover:text-rose-500 focus:opacity-100"
                   >
@@ -209,7 +232,7 @@ export function SchedulePage() {
           >
             <div className="flex gap-2">
               <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="field w-28" aria-label="时间" />
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="添加安排…" className="field flex-1" aria-label="安排内容" />
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="安排" className="field flex-1" aria-label="安排内容" />
             </div>
             <div className="flex gap-2">
               <select value={expId} onChange={(e) => setExpId(e.target.value)} className="field flex-1 text-[13px]" aria-label="关联实验">

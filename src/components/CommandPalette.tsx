@@ -74,7 +74,7 @@ export function CommandPalette() {
               <Command.Input
                 value={q}
                 onValueChange={setQ}
-                placeholder="搜索实验、记录内容、试剂…"
+                placeholder="搜索"
                 className="h-13 flex-1 bg-transparent text-[15px] text-slate-900 outline-none placeholder:text-slate-400 dark:text-white"
               />
             </div>

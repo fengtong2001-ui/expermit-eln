@@ -5,7 +5,8 @@ import { db } from '@/lib/db'
 import { reagentAlerts, useExperiments, useProjects, useReagents } from '@/lib/hooks'
 import { todayStr, cn } from '@/lib/util'
 import { ui } from '@/lib/ui-store'
-import { addSchedule, updateSchedule } from '@/lib/repo'
+import { addSchedule } from '@/lib/repo'
+import { schedDone, toggleScheduleDone } from '@/lib/scheduleDone'
 import { PageHeader } from '@/components/Shell'
 import { ExperimentCard } from '@/components/ExperimentCard'
 import { Button, EmptyState } from '@/components/ui'
@@ -103,22 +104,23 @@ export function TodayPage() {
                 </Link>
               </div>
               <ul className="space-y-1">
-                {schedules.map((s) => {
-                  const e = s.experimentId ? expTitle.get(s.experimentId) : undefined
-                  return (
-                    <li key={s.id} className="flex items-start gap-2.5 rounded-lg px-1 py-1.5">
+            {schedules.map((s) => {
+              const e = s.experimentId ? expTitle.get(s.experimentId) : undefined
+              const isDone = schedDone(s, e)
+              return (
+                <li key={s.id} className="flex items-start gap-2.5 rounded-lg px-1 py-1.5">
                       <button
-                        onClick={() => updateSchedule(s.id, { done: !s.done })}
-                        aria-label={s.done ? '标为未完成' : '标为完成'}
+                        onClick={() => toggleScheduleDone(s, e)}
+                        aria-label={isDone ? '标为未完成' : '标为完成'}
                         className={cn(
                           'mt-0.5 flex size-4.5 shrink-0 cursor-pointer items-center justify-center rounded-full border transition',
-                          s.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 hover:border-brand-500 dark:border-slate-600',
+                          isDone ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 hover:border-brand-500 dark:border-slate-600',
                         )}
                       >
-                        {s.done && <Check className="size-3" strokeWidth={3} />}
+                        {isDone && <Check className="size-3" strokeWidth={3} />}
                       </button>
                       <div className="min-w-0 flex-1">
-                        <p className={cn('text-[13px]', s.done ? 'text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200')}>
+                        <p className={cn('text-[13px]', isDone ? 'text-slate-500 line-through' : 'text-slate-700 dark:text-slate-200')}>
                           {s.time && <span className="mr-1.5 text-slate-500 tabular-nums">{s.time}</span>}
                           {s.title}
                         </p>
@@ -146,8 +148,8 @@ export function TodayPage() {
                 <input
                   value={quick}
                   onChange={(e) => setQuick(e.target.value)}
-                  placeholder="添加今日安排，如：14:30 换液"
-                  className="h-8 flex-1 bg-transparent text-[13px] outline-none placeholder:text-slate-400"
+                  placeholder="安排"
+                  className="h-8 flex-1 rounded-md border border-slate-200 px-2 text-[13px] outline-none placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-500 dark:border-slate-700 dark:hover:border-slate-600"
                 />
               </form>
               {upcoming.filter((u) => u.date !== today).length > 0 && (

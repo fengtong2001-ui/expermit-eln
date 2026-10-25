@@ -5,6 +5,7 @@ import { newQpcrRow, type QpcrData } from './defs'
 import { computeDDCt, type QpcrRow } from '@/lib/qpcr'
 import { AddRow, NumInput, Panel, RowDelete } from './kit'
 import { Field, Popover, PopoverContent, PopoverTrigger } from '@/components/ui'
+import { pushUndo } from '@/lib/undo'
 
 /** 从 Excel / 仪器导出粘贴：每行「样品 组别 基因 Ct1 Ct2 …」，制表符或逗号分隔 */
 function parsePaste(text: string, replicates: number): QpcrRow[] | null {
@@ -37,7 +38,7 @@ export function QpcrBlock({ data, onChange, readOnly }: BlockEditorProps<QpcrDat
     <div className="space-y-3">
       <div className="flex flex-wrap items-end gap-3">
         <Field label="内参基因" className="w-32">
-          <input className="field" value={data.reference} readOnly={readOnly} onChange={(e) => onChange({ ...data, reference: e.target.value })} placeholder="GAPDH" />
+          <input className="field" value={data.reference} readOnly={readOnly} onChange={(e) => onChange({ ...data, reference: e.target.value })} />
         </Field>
         <Field label="对照组" className="w-32">
           <input className="field" value={data.control} readOnly={readOnly} onChange={(e) => onChange({ ...data, control: e.target.value })} placeholder="对照" />
@@ -110,7 +111,7 @@ export function QpcrBlock({ data, onChange, readOnly }: BlockEditorProps<QpcrDat
                       />
                     </td>
                   ))}
-                  <td>{!readOnly && <RowDelete onClick={() => setRows(data.rows.filter((x) => x.id !== r.id))} />}</td>
+                  <td>{!readOnly && <RowDelete onClick={() => { pushUndo('删除行', () => setRows(structuredClone(data.rows))); setRows(data.rows.filter((x) => x.id !== r.id)) }} />}</td>
                 </tr>
               ))}
             </tbody>

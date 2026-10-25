@@ -3,6 +3,7 @@ import { newLane, type Lane, type LanesData } from './defs'
 import { AddRow, BlockTitle, Panel, RowDelete } from './kit'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/util'
+import { pushUndo } from '@/lib/undo'
 
 const PRESETS = [10, 12, 15]
 
@@ -40,7 +41,7 @@ export function LanesBlock({ data, onChange, readOnly }: BlockEditorProps<LanesD
           value={data.gel}
           readOnly={readOnly}
           onChange={(e) => onChange({ ...data, gel: e.target.value })}
-          placeholder="凝胶规格，如：10% SDS-PAGE · 10 孔"
+          placeholder="凝胶规格"
           aria-label="凝胶规格"
           className="cell max-w-72 flex-1 text-[13px]"
         />
@@ -83,9 +84,9 @@ export function LanesBlock({ data, onChange, readOnly }: BlockEditorProps<LanesD
                 aria-label={`泳道 ${i + 1} 样品`}
                 className="cell"
               />
-              {!readOnly ? <RowDelete onClick={() => set(data.lanes.filter((x) => x.id !== l.id))} label="删除泳道" /> : <span />}
+              {!readOnly ? <RowDelete onClick={() => { pushUndo('删除泳道', () => set(structuredClone(data.lanes))); set(data.lanes.filter((x) => x.id !== l.id)) }} label="删除泳道" /> : <span />}
               <div className="col-span-2 col-start-2 flex gap-2 pb-1 sm:col-span-2 sm:col-start-3 sm:row-start-1 sm:pb-0">
-                <input value={l.load} readOnly={readOnly} onChange={(e) => update(l.id, { load: e.target.value })} placeholder="如 20 µg" aria-label="上样量" className="cell w-[90px] shrink-0" />
+                <input value={l.load} readOnly={readOnly} onChange={(e) => update(l.id, { load: e.target.value })} placeholder="上样量" aria-label="上样量" className="cell w-[90px] shrink-0" />
                 <input value={l.treatment} readOnly={readOnly} onChange={(e) => update(l.id, { treatment: e.target.value })} placeholder="处理" aria-label="处理" className="cell" />
               </div>
             </div>

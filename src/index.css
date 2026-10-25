@@ -36,6 +36,10 @@
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
   }
+  /* 深色模式下让原生控件（日期选择、滚动条、表单）用深色渲染 */
+  .dark {
+    color-scheme: dark;
+  }
   body {
     @apply bg-white text-slate-800 dark:bg-slate-950 dark:text-slate-200;
     font-feature-settings: 'cv11', 'ss01';
@@ -49,6 +53,12 @@
   input[type='number']::-webkit-inner-spin-button {
     opacity: 0.4;
   }
+  /* 输入光标永远跟文字同色：看得见文字就看得见光标（含深色模式与行内透明输入） */
+  input:where(:not([type='button'], [type='checkbox'], [type='radio'], [type='range'])),
+  textarea,
+  [contenteditable='true'] {
+    caret-color: currentColor;
+  }
 }
 
 @layer components {
@@ -60,11 +70,11 @@
   textarea.field {
     @apply h-auto py-2 leading-relaxed;
   }
-  /* 表格单元格里的无边框输入 */
+  /* 表格单元格里的输入：常显浅边框，一眼能看出哪里可以输入 */
   .cell {
-    @apply h-9 w-full min-w-0 rounded-md border border-transparent bg-transparent px-2 text-sm text-slate-800 placeholder:text-slate-300
-      hover:border-slate-200 focus:border-brand-500 focus:bg-white focus:ring-3 focus:ring-brand-500/15 focus:outline-none
-      dark:text-slate-100 dark:placeholder:text-slate-600 dark:hover:border-slate-700 dark:focus:bg-slate-900;
+    @apply h-9 w-full min-w-0 rounded-md border border-slate-200 bg-transparent px-2 text-sm text-slate-800 placeholder:text-slate-400 transition
+      hover:border-slate-300 focus:border-brand-500 focus:ring-3 focus:ring-brand-500/15 focus:outline-none
+      dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:border-slate-600 dark:focus:ring-brand-500/20;
   }
   .label {
     @apply mb-1.5 block text-xs font-medium text-slate-500 dark:text-slate-400;

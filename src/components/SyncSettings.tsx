@@ -160,7 +160,7 @@ export function SyncSettings() {
       <div className="rounded-xl border border-slate-200 p-3.5 dark:border-slate-800">
         <p className="mb-2 text-[13px] font-medium text-slate-700 dark:text-slate-200">已有配置链接？粘贴进来一步完成</p>
         <div className="flex gap-2">
-          <input className="field flex-1 text-xs" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="粘贴其他设备上「复制配置链接」得到的链接或代码" aria-label="配置链接" />
+          <input className="field flex-1 text-xs" value={importText} onChange={(e) => setImportText(e.target.value)} placeholder="配置链接" aria-label="配置链接" />
           <Button onClick={doImport} disabled={!importText.trim()}>
             导入
           </Button>
@@ -215,14 +215,14 @@ export function SyncSettings() {
             <div className="min-w-0 flex-1">
               <p className="text-[13px] font-medium text-slate-800 dark:text-slate-100">粘贴令牌，点「测试连接并保存」</p>
               <Field label="访问令牌" className="mt-2">
-                <input className="field font-mono text-xs" type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="github_pat_…" />
+                <input className="field font-mono text-xs" type="password" value={token} onChange={(e) => setToken(e.target.value)} />
               </Field>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="仓库名" hint="只填名字即可，自动识别你的账号">
-                  <input className="field" value={repo} onChange={(e) => setRepo(e.target.value)} placeholder="expermit-sync" />
+                  <input className="field" value={repo} onChange={(e) => setRepo(e.target.value)} />
                 </Field>
                 <Field label="目录" hint="数据在仓库里的存放路径">
-                  <input className="field" value={ghPath} onChange={(e) => setGhPath(e.target.value)} placeholder="eln" />
+                  <input className="field" value={ghPath} onChange={(e) => setGhPath(e.target.value)} />
                 </Field>
               </div>
             </div>
@@ -231,7 +231,7 @@ export function SyncSettings() {
       ) : (
         <div className="space-y-4">
           <Field label="服务器地址">
-            <input className="field" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://nas.example.com:5005 或 https://cloud.example.com/remote.php/dav/files/用户名" />
+            <input className="field" value={url} onChange={(e) => setUrl(e.target.value)} />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="用户名">
@@ -242,7 +242,7 @@ export function SyncSettings() {
             </Field>
           </div>
           <Field label="同步目录">
-            <input className="field" value={davPath} onChange={(e) => setDavPath(e.target.value)} placeholder="ExPermit" />
+            <input className="field" value={davPath} onChange={(e) => setDavPath(e.target.value)} />
           </Field>
           <p className="flex items-start gap-1.5 text-xs leading-relaxed text-amber-700 dark:text-amber-300">
             <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />

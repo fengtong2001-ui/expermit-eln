@@ -31,7 +31,7 @@ export function ReagentPicker({ onPick, children, filter }: { onPick: (r: Reagen
               autoFocus
               value={q}
               onValueChange={setQ}
-              placeholder="搜索试剂名称、货号、批号…"
+              placeholder="搜索"
               className="h-8 w-full bg-transparent px-2 text-[13px] outline-none placeholder:text-slate-400"
             />
           </div>

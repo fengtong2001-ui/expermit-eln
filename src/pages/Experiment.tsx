@@ -38,6 +38,7 @@ import { promptDialog } from '@/components/prompt'
 import { HistoryDrawer } from '@/components/HistoryDrawer'
 import { exportExperimentZip } from '@/lib/exporter'
 import { useDebouncedSave } from '@/lib/useDebouncedSave'
+import { pushUndo, undoById } from '@/lib/undo'
 import { RECOMMENDED } from '@/blocks/defs'
 
 export function ExperimentPage() {
@@ -109,8 +110,11 @@ export function ExperimentPage() {
   }
 
   const removeBlock = async (blockId: string) => {
+    const b = blocks.find((x) => x.id === blockId)
+    const name = b ? (DEFS[b.type as BlockType]?.label ?? '内容块') : '内容块'
     await repo.deleteBlock(blockId)
-    toast('已删除内容块', { action: { label: '撤销', onClick: () => void repo.restoreBlock(blockId) }, duration: 8000 })
+    const uid = pushUndo(`删除${name}`, () => void repo.restoreBlock(blockId))
+    toast('已删除内容块', { action: { label: '撤销', onClick: () => undoById(uid) }, duration: 8000 })
   }
 
   const duplicateBlock = async (blockId: string) => {
@@ -141,7 +145,8 @@ export function ExperimentPage() {
     await repo.saveStateFlush()
     await repo.completeExperiment(exp.id)
     setUnlocked(false)
-    toast.success('已标记完成，并自动保存了一个版本', { action: { label: '撤销', onClick: () => void repo.reopenExperiment(exp.id) } })
+    const uid = pushUndo('标记完成', () => void repo.reopenExperiment(exp.id))
+    toast.success('已标记完成，并自动保存了一个版本', { action: { label: '撤销', onClick: () => undoById(uid) } })
   }
 
   const unlock = async () => {
@@ -152,8 +157,9 @@ export function ExperimentPage() {
 
   const trash = async () => {
     await repo.trashExperiment(exp.id)
+    const uid = pushUndo('移到回收站', () => void repo.restoreExperiment(exp.id))
     navigate('/experiments')
-    toast('已移到回收站，30 天内可恢复', { action: { label: '撤销', onClick: () => void repo.restoreExperiment(exp.id) }, duration: 8000 })
+    toast('已移到回收站，30 天内可恢复', { action: { label: '撤销', onClick: () => undoById(uid) }, duration: 8000 })
   }
 
   const saveTemplate = async () => {
@@ -271,9 +277,10 @@ export function ExperimentPage() {
                   <MenuItem
                     icon={<Archive />}
                     onSelect={() =>
-                      void repo.archiveExperiment(exp.id, true).then(() =>
-                        toast('已归档，列表里默认不再显示', { action: { label: '撤销', onClick: () => void repo.archiveExperiment(exp.id, false) } }),
-                      )
+                      void repo.archiveExperiment(exp.id, true).then(() => {
+                        const uid = pushUndo('归档', () => void repo.archiveExperiment(exp.id, false))
+                        toast('已归档，列表里默认不再显示', { action: { label: '撤销', onClick: () => undoById(uid) } })
+                      })
                     }
                   >
                     归档

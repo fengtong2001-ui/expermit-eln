@@ -18,7 +18,7 @@ export function TextBlock({ data, onChange, readOnly }: BlockEditorProps<TextDat
       TaskList,
       TaskItem.configure({ nested: true }),
       Placeholder.configure({
-        placeholder: ({ node }) => (node.type.name === 'heading' ? '标题' : '记录点什么… 支持 Markdown：# 标题、- 列表、[] 待办、> 引用'),
+        placeholder: ({ node }) => (node.type.name === 'heading' ? '标题' : '记录'),
       }),
     ],
     content: data.html,

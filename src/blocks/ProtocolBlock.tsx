@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import type { BlockEditorProps } from './types'
 import { newStep, type ProtocolData, type Step } from './defs'
 import { cn } from '@/lib/util'
+import { pushUndo } from '@/lib/undo'
 import { AddRow, BlockTitle, Panel, RowDelete } from './kit'
 
 // 计时器状态放在模块级：切换页面后不丢
@@ -125,7 +126,7 @@ export function ProtocolBlock({ data, onChange, readOnly }: BlockEditorProps<Pro
 
   return (
     <div>
-      <BlockTitle value={data.title} onChange={(title) => onChange({ ...data, title })} placeholder="流程名称，如：WB 流程" readOnly={readOnly} />
+      <BlockTitle value={data.title} onChange={(title) => onChange({ ...data, title })} placeholder="流程名称" readOnly={readOnly} />
       <Panel>
         <div className="flex items-center gap-3 border-b border-slate-100 px-3 py-2 dark:border-slate-800">
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
@@ -178,7 +179,7 @@ export function ProtocolBlock({ data, onChange, readOnly }: BlockEditorProps<Pro
                     value={s.params}
                     readOnly={readOnly}
                     onChange={(e) => update(s.id, { params: e.target.value })}
-                    placeholder="条件参数，如：4 °C 过夜、1:1000"
+                    placeholder="条件参数"
                     aria-label="条件参数"
                     className="cell h-8 min-w-40 flex-1 text-[13px] text-slate-500"
                   />
@@ -204,13 +205,13 @@ export function ProtocolBlock({ data, onChange, readOnly }: BlockEditorProps<Pro
                     value={s.note}
                     readOnly={readOnly}
                     onChange={(e) => update(s.id, { note: e.target.value })}
-                    placeholder="实际情况 / 偏差记录"
+                    placeholder="偏差记录"
                     aria-label="实际情况"
                     className="cell h-8 text-[13px] text-amber-700 placeholder:text-slate-300 dark:text-amber-300"
                   />
                 )}
               </div>
-              {!readOnly && <RowDelete onClick={() => set(data.steps.filter((x) => x.id !== s.id))} label="删除这一步" />}
+              {!readOnly && <RowDelete onClick={() => { pushUndo('删除步骤', () => set(structuredClone(data.steps))); set(data.steps.filter((x) => x.id !== s.id)) }} label="删除这一步" />}
             </li>
           ))}
         </ol>

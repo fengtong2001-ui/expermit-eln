@@ -33,7 +33,7 @@ export function BlockPicker({ kind, onPick, autoFocus = true }: { kind: string; 
       <div className="border-b border-slate-100 p-2 dark:border-slate-800">
         <Command.Input
           autoFocus={autoFocus}
-          placeholder="搜索内容块类型…"
+          placeholder="搜索"
           className="h-8 w-full rounded-md bg-transparent px-2 text-[13px] outline-none placeholder:text-slate-400"
         />
       </div>

@@ -75,7 +75,7 @@ function Thumb({ item, onOpen, onRemove, onCaption, readOnly }: { item: FileItem
           value={item.caption}
           readOnly={readOnly}
           onChange={(e) => onCaption(e.target.value)}
-          placeholder={readOnly ? '' : '添加说明'}
+          placeholder={readOnly ? '' : '说明'}
           aria-label="图片说明"
           className="w-full truncate bg-transparent text-xs text-slate-600 outline-none placeholder:text-slate-300 dark:text-slate-300"
         />

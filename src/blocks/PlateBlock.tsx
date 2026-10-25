@@ -8,6 +8,7 @@ import { cn, modKey, uid } from '@/lib/util'
 import { BlockTitle } from './kit'
 import { Button, Popover, PopoverContent, PopoverTrigger, Segmented } from '@/components/ui'
 import { confirmDialog } from '@/components/confirm'
+import { pushUndo } from '@/lib/undo'
 
 const EMPTY: Well = { sample: '', treatment: '', note: '', group: null }
 const isEmptyWell = (w?: Well) => !w || (!w.sample && !w.treatment && !w.note && !w.group)
@@ -221,7 +222,7 @@ export function PlateBlock({ data, onChange, readOnly }: BlockEditorProps<PlateD
 
   return (
     <div ref={wrapRef}>
-      <BlockTitle value={data.title} onChange={(title) => set({ title })} placeholder="孔板名称，如：CCK-8 布板" readOnly={readOnly} />
+      <BlockTitle value={data.title} onChange={(title) => set({ title })} placeholder="孔板名称" readOnly={readOnly} />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {readOnly ? (
@@ -336,6 +337,7 @@ export function PlateBlock({ data, onChange, readOnly }: BlockEditorProps<PlateD
                         aria-label={`删除分组 ${g.name}`}
                         className="cursor-pointer text-slate-400 hover:text-rose-500"
                         onClick={() => {
+                          pushUndo('删除分组', () => onChange(structuredClone(data)))
                           const wells: Record<string, Well> = {}
                           for (const [k, w] of Object.entries(data.wells)) {
                             const nw = w.group === g.id ? { ...w, group: null } : w
@@ -376,9 +378,8 @@ export function PlateBlock({ data, onChange, readOnly }: BlockEditorProps<PlateD
                     <label key={k} className="block">
                       <span className="label">{{ sample: '样品', treatment: '处理 / 试剂与用量', note: '备注' }[k]}</span>
                       <input
-                        className="field bg-white"
+                        className="field"
                         value={v ?? ''}
-                        placeholder={v === null ? '（多个不同值，输入将统一覆盖）' : k === 'sample' ? '如：HeLa、空白、标准品 1' : k === 'treatment' ? '如：DOX 1 µM 24 h' : ''}
                         onChange={(e) => writeWells(sel, (w) => ({ ...w, [k]: e.target.value }))}
                       />
                     </label>

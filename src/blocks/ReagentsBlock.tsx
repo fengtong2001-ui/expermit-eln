@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 import { convert, COMMON_UNITS, formatQty } from '@/lib/units'
 import { reagentAlerts } from '@/lib/hooks'
 import { cn } from '@/lib/util'
+import { pushUndo } from '@/lib/undo'
 import { ReagentPicker } from '@/components/ReagentPicker'
 import { AddRow, NumInput, Panel, RowDelete } from './kit'
 
@@ -91,7 +92,7 @@ export function ReagentsBlock({ data, onChange, readOnly }: BlockEditorProps<Rea
                 />
                 <input value={it.note} readOnly={readOnly} onChange={(e) => update(it.id, { note: e.target.value })} placeholder="备注" aria-label="备注" className="cell" />
               </div>
-              {!readOnly ? <RowDelete onClick={() => remove(it.id)} /> : <span />}
+              {!readOnly ? <RowDelete onClick={() => { pushUndo('删除试剂行', () => onChange(structuredClone(data))); remove(it.id) }} /> : <span />}
             </div>
           )
         })}

@@ -27,9 +27,11 @@ import { useSaveState, saveState } from '@/lib/saveState'
 import { KIND_STYLES } from '@/lib/kinds'
 import { CommandPalette } from './CommandPalette'
 import { NewExperimentDialog } from './NewExperimentDialog'
+import { UndoBar } from './UndoBar'
 import { Button, Kbd, Tip } from './ui'
 import { createProject } from '@/lib/repo'
 import { syncNow, useSyncStatus } from '@/lib/sync/engine'
+import { popUndo } from '@/lib/undo'
 import { promptDialog } from './prompt'
 import { toast } from 'sonner'
 
@@ -124,6 +126,10 @@ export function Shell() {
       } else if (mod && e.key.toLowerCase() === 's') {
         e.preventDefault()
         void saveState.flushAll().then(() => toast.success('已保存'))
+      } else if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey && !isTypingTarget(e.target)) {
+        // 非输入焦点时 Ctrl+Z 撤回最近的结构性操作（删块/删行/删除/归档…）；输入框内仍是原生文字撤销
+        e.preventDefault()
+        popUndo()
       } else if (!mod && !e.altKey && e.key === 'n' && !isTypingTarget(e.target) && !document.querySelector('[role="dialog"]')) {
         e.preventDefault()
         ui.openNewExperiment()
@@ -134,7 +140,7 @@ export function Shell() {
   }, [])
 
   const addProject = async () => {
-    const r = await promptDialog({ title: '新建项目', label: '项目名称', placeholder: '例如：mTOR 通路研究', confirmText: '创建' })
+    const r = await promptDialog({ title: '新建项目', label: '项目名称', confirmText: '创建' })
     if (!r) return
     const p = await createProject(r.value)
     navigate(`/experiments?project=${p.id}`)
@@ -305,6 +311,7 @@ export function Shell() {
 
       <CommandPalette />
       <NewExperimentDialog />
+      <UndoBar />
     </div>
   )
 }

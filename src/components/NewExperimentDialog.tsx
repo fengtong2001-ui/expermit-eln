@@ -147,7 +147,7 @@ export function NewExperimentDialog() {
             <input type="date" className="field" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
           <Field label="标签">
-            <TagInput value={tags} onChange={setTags} placeholder="如 mTOR、HeLa，回车添加" />
+            <TagInput value={tags} onChange={setTags} placeholder="标签" />
           </Field>
           <p className="text-xs text-slate-500">类型：{tpl ? kindOf(tpl.kind).label : ''} · 编号自动生成</p>
           {KINDS.length === 0 && null}

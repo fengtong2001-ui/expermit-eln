@@ -8,6 +8,7 @@ import { reagentAlerts, useReagents } from '@/lib/hooks'
 import { emptyReagent, restoreReagent, saveReagent, trashReagent } from '@/lib/repo'
 import { COMMON_UNITS, formatQty } from '@/lib/units'
 import { cn, formatDate } from '@/lib/util'
+import { pushUndo, undoById } from '@/lib/undo'
 import type { Reagent } from '@/lib/types'
 import { PageHeader } from '@/components/Shell'
 import { Badge, Button, Dialog, EmptyState, Field } from '@/components/ui'
@@ -78,9 +79,10 @@ function ReagentDialog({ id, open, onClose }: { id: string | null; open: boolean
               variant="ghost"
               className="mr-auto text-rose-600"
               onClick={async () => {
+                const uid = pushUndo('删除试剂', () => void restoreReagent(id))
                 await trashReagent(id)
                 onClose()
-                toast('已移到回收站', { action: { label: '撤销', onClick: () => void restoreReagent(id) } })
+                toast('已移到回收站', { action: { label: '撤销', onClick: () => undoById(uid) } })
               }}
             >
               <Trash2 /> 删除
@@ -101,13 +103,13 @@ function ReagentDialog({ id, open, onClose }: { id: string | null; open: boolean
         }}
       >
         <Field label="名称 *" className="sm:col-span-2">
-          <input autoFocus className="field" value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="如：GAPDH 兔单抗、胎牛血清、PBS" />
+          <input autoFocus className="field" value={f.name} onChange={(e) => set('name', e.target.value)} placeholder="搜索" />
         </Field>
         <Field label="类别">
           <input className="field" list="reagent-cats" value={f.category} onChange={(e) => set('category', e.target.value)} />
         </Field>
         <Field label="规格">
-          <input className="field" value={f.spec} onChange={(e) => set('spec', e.target.value)} placeholder="如 100 µL、500 mL" />
+          <input className="field" value={f.spec} onChange={(e) => set('spec', e.target.value)} />
         </Field>
         <Field label="厂商">
           <input className="field" value={f.vendor} onChange={(e) => set('vendor', e.target.value)} />
@@ -125,25 +127,25 @@ function ReagentDialog({ id, open, onClose }: { id: string | null; open: boolean
           <input className="field" list="reagent-storage" value={f.storage} onChange={(e) => set('storage', e.target.value)} />
         </Field>
         <Field label="存放位置">
-          <input className="field" value={f.location} onChange={(e) => set('location', e.target.value)} placeholder="如：4 °C 冰箱 第 2 层" />
+          <input className="field" value={f.location} onChange={(e) => set('location', e.target.value)} />
         </Field>
 
         <div className="rounded-xl bg-slate-50 p-3 sm:col-span-2 dark:bg-slate-900">
           <div className="grid grid-cols-3 gap-3">
             <Field label="库存数量">
-              <input type="number" step="any" className="field bg-white" value={f.stockQty ?? ''} onChange={(e) => set('stockQty', e.target.value === '' ? null : Number(e.target.value))} placeholder="不记录" />
+              <input type="number" step="any" className="field" value={f.stockQty ?? ''} onChange={(e) => set('stockQty', e.target.value === '' ? null : Number(e.target.value))} />
             </Field>
             <Field label="单位">
-              <input className="field bg-white" list="eln-units-r" value={f.stockUnit} onChange={(e) => set('stockUnit', e.target.value)} placeholder="mL / µL / 瓶" />
+              <input className="field" list="eln-units-r" value={f.stockUnit} onChange={(e) => set('stockUnit', e.target.value)} />
             </Field>
             <Field label="低于此值提醒">
-              <input type="number" step="any" className="field bg-white" value={f.lowStock ?? ''} onChange={(e) => set('lowStock', e.target.value === '' ? null : Number(e.target.value))} placeholder="可选" />
+              <input type="number" step="any" className="field" value={f.lowStock ?? ''} onChange={(e) => set('lowStock', e.target.value === '' ? null : Number(e.target.value))} />
             </Field>
           </div>
           {id && existing && existing.stockQty !== null && (
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
               <span className="text-xs text-slate-500">快速调整</span>
-              <input type="number" step="any" value={adjust} onChange={(e) => setAdjust(e.target.value)} className="field h-8 w-24 bg-white" placeholder="数量" aria-label="调整数量" />
+              <input type="number" step="any" value={adjust} onChange={(e) => setAdjust(e.target.value)} className="field h-8 w-24" aria-label="调整数量" />
               <span className="text-xs text-slate-500">{existing.stockUnit}</span>
               <Button size="sm" onClick={() => doAdjust(1)} disabled={!Number(adjust)}>
                 <Plus /> 入库
@@ -242,7 +244,7 @@ export function ReagentsPage() {
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <div className="relative min-w-48 flex-1 sm:max-w-72">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-slate-500" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="名称、货号、批号、位置" className="field pl-8" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索" className="field pl-8" />
           </div>
           <select className="field h-9 w-auto text-[13px]" value={cat} onChange={(e) => setCat(e.target.value)} aria-label="类别">
             <option value="all">所有类别</option>
