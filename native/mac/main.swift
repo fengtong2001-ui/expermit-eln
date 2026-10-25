@@ -68,6 +68,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     config.defaultWebpagePreferences.allowsContentJavaScript = true
     config.userContentController.add(self, name: "selftest")
 
+    // --sync '<json>'：在页面加载前把同步配置写进本应用沙盒的 localStorage
+    if let i = args.firstIndex(of: "--sync"), i + 1 < args.count {
+      let json = args[i + 1]
+        .replacingOccurrences(of: "\\", with: "\\\\")
+        .replacingOccurrences(of: "'", with: "\\'")
+        .replacingOccurrences(of: "\n", with: "")
+      let script = WKUserScript(
+        source: "try { localStorage.setItem('eln-sync-config', '\(json)'); } catch (e) {}",
+        injectionTime: .atDocumentStart,
+        forMainFrameOnly: true
+      )
+      config.userContentController.addUserScript(script)
+    }
+
     web = WKWebView(frame: .zero, configuration: config)
     web.navigationDelegate = self
     web.customUserAgent = web.customUserAgent // 保持默认
