@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, ChevronLeft, ChevronRight, FlaskConical, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Copy, FlaskConical, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { db } from '@/lib/db'
-import { addSchedule, deleteSchedule, updateSchedule } from '@/lib/repo'
+import { deleteSchedule, updateSchedule } from '@/lib/repo'
 import { schedDone, toggleScheduleDone } from '@/lib/scheduleDone'
 import { pushUndo, undoById } from '@/lib/undo'
 import { useExperiments } from '@/lib/hooks'
@@ -12,6 +12,8 @@ import { cn, todayStr } from '@/lib/util'
 import { ui } from '@/lib/ui-store'
 import { PageHeader } from '@/components/Shell'
 import { Button } from '@/components/ui'
+import { ScheduleDialog } from '@/components/ScheduleDialog'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/context-menu'
 import type { Schedule } from '@/lib/types'
 
 const WEEK = ['一', '二', '三', '四', '五', '六', '日']
@@ -52,16 +54,7 @@ export function SchedulePage() {
   })
   const pick = (date: string) => setSp({ date }, { replace: true })
 
-  const [title, setTitle] = useState('')
-  const [time, setTime] = useState('')
-  const [expId, setExpId] = useState('')
-  const add = async () => {
-    if (!title.trim()) return
-    await addSchedule({ date: selected, time, title: title.trim(), note: '', done: false, experimentId: expId || null })
-    setTitle('')
-    setTime('')
-    setExpId('')
-  }
+  const [addOpen, setAddOpen] = useState(false)
 
   const [sy, sm, sd] = selected.split('-').map(Number)
 
@@ -181,7 +174,9 @@ export function SchedulePage() {
               const e = s.experimentId ? expMap.get(s.experimentId) : undefined
               const isDone = schedDone(s, e)
               return (
-                <li key={s.id} className="group flex items-start gap-2.5 rounded-lg px-1.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                <ContextMenu key={s.id}>
+                  <ContextMenuTrigger asChild>
+                    <li className="group flex items-start gap-2.5 rounded-lg px-1.5 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <button
                     onClick={() => toggleScheduleDone(s, e)}
                     aria-label={isDone ? '标为未完成' : '标为完成'}
@@ -219,40 +214,48 @@ export function SchedulePage() {
                   >
                     <Trash2 className="size-3.5" />
                   </button>
-                </li>
+                    </li>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem icon={<Check />} onSelect={() => toggleScheduleDone(s, e)}>
+                      {isDone ? '标为未完成' : '标为完成'}
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      icon={<Copy />}
+                      onSelect={() => {
+                        void navigator.clipboard.writeText(s.title)
+                        toast.success('已复制')
+                      }}
+                    >
+                      复制内容
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      icon={<Trash2 />}
+                      danger
+                      onSelect={() => {
+                        void (async () => {
+                          await deleteSchedule(s.id)
+                          const uid = pushUndo('删除日程', () => void updateSchedule(s.id, { deletedAt: null }))
+                          toast('已删除日程', { action: { label: '撤销', onClick: () => undoById(uid) } })
+                        })()
+                      }}
+                    >
+                      删除
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
               )
             })}
           </ul>
-          <form
-            className="mt-3 space-y-2 border-t border-slate-100 pt-3 dark:border-slate-800"
-            onSubmit={(e) => {
-              e.preventDefault()
-              void add()
-            }}
-          >
-            <div className="flex gap-2">
-              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className="field w-28" aria-label="时间" />
-              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="安排" className="field flex-1" aria-label="安排内容" />
-            </div>
-            <div className="flex gap-2">
-              <select value={expId} onChange={(e) => setExpId(e.target.value)} className="field flex-1 text-[13px]" aria-label="关联实验">
-                <option value="">不关联实验</option>
-                {(exps ?? [])
-                  .filter((e) => e.status !== 'archived')
-                  .map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.title}
-                    </option>
-                  ))}
-              </select>
-              <Button type="submit" variant="primary" disabled={!title.trim()}>
-                <Plus /> 添加
-              </Button>
-            </div>
-          </form>
+          <Button className="mt-3 w-full justify-start" onClick={() => setAddOpen(true)}>
+            <Plus /> 添加安排
+          </Button>
           {sy && null}
         </aside>
       </div>
+
+      <ScheduleDialog open={addOpen} onOpenChange={setAddOpen} defaultDate={selected} />
     </div>
   )
 }

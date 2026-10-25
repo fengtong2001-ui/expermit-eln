@@ -154,20 +154,29 @@ export function SettingsPage() {
   )
 }
 
-/** 桌面版：数据存储位置（更改后自动重启并迁移） */
+/** 桌面版：数据存储位置（更改后自动重启并迁移；可选删除原位置数据） */
 function DataDirRow() {
   const [dir, setDir] = useState<string | null>(null)
   useEffect(() => {
     void desktop?.getInfo().then((i) => setDir(i.dataDir))
   }, [])
   const change = async () => {
+    if (!desktop) return
     const ok = await confirmDialog({
       title: '更改数据存储位置？',
-      body: '选择新位置后应用会自动重启，并把全部数据复制过去；原位置的数据保留不动。',
+      body: '选择新位置后应用会自动重启，并把全部数据复制过去；原位置的数据默认保留。',
       confirmText: '选择位置',
     })
     if (!ok) return
-    await desktop?.chooseDataDir()
+    const picked = await desktop.pickDataDir()
+    if (!picked) return
+    const del = await confirmDialog({
+      title: '删除原位置的数据？',
+      body: `迁移完成后将删除原位置的数据：${dir ?? ''}。如不确定，建议保留（稍后可手动删除）。`,
+      confirmText: '迁移并删除原数据',
+      danger: true,
+    })
+    await desktop.applyDataDir(picked, del)
   }
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">

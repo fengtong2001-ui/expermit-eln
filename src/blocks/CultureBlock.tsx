@@ -1,8 +1,10 @@
 import type { BlockEditorProps } from './types'
+import { Trash2 } from 'lucide-react'
 import { newVessel, type CultureData, type Vessel } from './defs'
 import { AddRow, Panel, RowDelete } from './kit'
 import { todayStr, daysUntil } from '@/lib/util'
 import { pushUndo } from '@/lib/undo'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/context-menu'
 
 // 常见培养容器；面积等规格因厂商而异，这里不写死数值，请以耗材说明书为准
 export const VESSELS = ['T25 培养瓶', 'T75 培养瓶', 'T175 培养瓶', '35 mm 培养皿', '60 mm 培养皿', '100 mm 培养皿', '150 mm 培养皿', '6 孔板', '12 孔板', '24 孔板', '96 孔板', '15 mL 离心管', '冻存管']
@@ -42,7 +44,9 @@ export function CultureBlock({ data, onChange, readOnly }: BlockEditorProps<Cult
         {data.vessels.map((v) => {
           const days = v.seededOn ? -daysUntil(v.seededOn) : null
           return (
-            <div key={v.id} className="group/row flex gap-3 p-3">
+            <ContextMenu key={v.id}>
+              <ContextMenuTrigger asChild disabled={readOnly}>
+                <div className="group/row flex gap-3 p-3">
               <FlaskIcon vessel={v.vessel} />
               <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-2 gap-y-1 sm:grid-cols-4">
                 <label className="col-span-2 sm:col-span-1">
@@ -80,7 +84,23 @@ export function CultureBlock({ data, onChange, readOnly }: BlockEditorProps<Cult
                 </label>
               </div>
               {!readOnly && <RowDelete onClick={() => { pushUndo('删除容器', () => set(structuredClone(data.vessels))); set(data.vessels.filter((x) => x.id !== v.id)) }} label="删除容器" />}
-            </div>
+                </div>
+              </ContextMenuTrigger>
+              {!readOnly && (
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    icon={<Trash2 />}
+                    danger
+                    onSelect={() => {
+                      pushUndo('删除容器', () => set(structuredClone(data.vessels)))
+                      set(data.vessels.filter((x) => x.id !== v.id))
+                    }}
+                  >
+                    删除容器
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              )}
+            </ContextMenu>
           )
         })}
       </div>

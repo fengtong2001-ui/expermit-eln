@@ -10,6 +10,7 @@ import { useDebouncedSave } from '@/lib/useDebouncedSave'
 import { cn } from '@/lib/util'
 import { Button, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Tip } from './ui'
 import { InsertPopover } from './BlockMenu'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from './context-menu'
 
 class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
@@ -71,15 +72,17 @@ export function BlockFrame({ block, kind, readOnly, highlighted, onInsertAfter, 
   }, [highlighted])
 
   return (
-    <div
-      ref={(n) => {
-        setNodeRef(n)
-        ref.current = n
-      }}
-      id={`block-${block.id}`}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cn('group/block relative print-break', isDragging && 'z-10 opacity-80')}
-    >
+    <ContextMenu>
+      <ContextMenuTrigger asChild disabled={readOnly}>
+        <div
+          ref={(n) => {
+            setNodeRef(n)
+            ref.current = n
+          }}
+          id={`block-${block.id}`}
+          style={{ transform: CSS.Translate.toString(transform), transition }}
+          className={cn('group/block relative print-break', isDragging && 'z-10 opacity-80')}
+        >
       <div
         className={cn(
           'relative rounded-xl transition',
@@ -175,6 +178,25 @@ export function BlockFrame({ block, kind, readOnly, highlighted, onInsertAfter, 
           </Boundary>
         </div>
       </div>
-    </div>
+        </div>
+      </ContextMenuTrigger>
+      {!readOnly && (
+        <ContextMenuContent>
+          <ContextMenuItem icon={<Copy />} onSelect={onDuplicate}>
+            复制一份
+          </ContextMenuItem>
+          <ContextMenuItem icon={<ArrowUp />} onSelect={() => onMove(-1)} disabled={isFirst}>
+            上移
+          </ContextMenuItem>
+          <ContextMenuItem icon={<ArrowDown />} onSelect={() => onMove(1)} disabled={isLast}>
+            下移
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem icon={<Trash2 />} danger onSelect={onDelete}>
+            删除
+          </ContextMenuItem>
+        </ContextMenuContent>
+      )}
+    </ContextMenu>
   )
 }

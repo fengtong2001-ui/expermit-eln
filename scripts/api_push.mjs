@@ -29,10 +29,20 @@ if (remote.sha === local) {
   process.exit(0)
 }
 
-// 相对远端的变更列表（含删除）
-const diff = git('diff', '--name-status', `${remote.sha}..${local}`)
+// 基准 commit：优先远端 sha 本地是否存在；不存在（上次是 API 快照推送）则按 tree 哈希找内容等价的本地 commit
+let base = null
+try {
+  git('cat-file', '-e', remote.sha)
+  base = remote.sha
+} catch {
+  const remoteTree = remote.commit.tree.sha
+  const hit = git('log', '--format=%T %H', '-50').split('\n').map((l) => l.split(' ')).find(([t]) => t === remoteTree)
+  if (hit) base = hit[1]
+}
+// 相对基准的变更列表（含删除）；找不到基准则全量上传
+const diff = base ? git('diff', '--name-status', `${base}..${local}`) : git('ls-files').split('\n').map((p) => `A\t${p.replace(/\//g, '/')}`).join('\n')
 if (!diff) throw new Error('没有变更？')
-console.log(`变更 ${diff.split('\n').length} 个文件`)
+console.log(`基准 ${base ? base.slice(0, 7) : '(全量)'}，变更 ${diff.split('\n').length} 个文件`)
 
 const baseTree = remote.commit.tree.sha
 const tree = []

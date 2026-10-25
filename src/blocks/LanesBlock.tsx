@@ -1,9 +1,11 @@
 import type { BlockEditorProps } from './types'
+import { Trash2 } from 'lucide-react'
 import { newLane, type Lane, type LanesData } from './defs'
 import { AddRow, BlockTitle, Panel, RowDelete } from './kit'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/util'
 import { pushUndo } from '@/lib/undo'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/context-menu'
 
 const PRESETS = [10, 12, 15]
 
@@ -67,7 +69,9 @@ export function LanesBlock({ data, onChange, readOnly }: BlockEditorProps<LanesD
         </div>
         <div className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.lanes.map((l, i) => (
-            <div key={l.id} className="group/row grid grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-x-2 px-3 py-1 sm:grid-cols-[32px_minmax(0,1.2fr)_90px_minmax(0,1fr)_32px]">
+            <ContextMenu key={l.id}>
+              <ContextMenuTrigger asChild disabled={readOnly}>
+                <div className="group/row grid grid-cols-[32px_minmax(0,1fr)_32px] items-center gap-x-2 px-3 py-1 sm:grid-cols-[32px_minmax(0,1.2fr)_90px_minmax(0,1fr)_32px]">
               <span className="text-center text-xs font-semibold text-slate-500 tabular-nums">{i + 1}</span>
               <input
                 value={l.sample}
@@ -88,7 +92,23 @@ export function LanesBlock({ data, onChange, readOnly }: BlockEditorProps<LanesD
                 <input value={l.load} readOnly={readOnly} onChange={(e) => update(l.id, { load: e.target.value })} aria-label="上样量" className="cell w-[90px] shrink-0" />
                 <input value={l.treatment} readOnly={readOnly} onChange={(e) => update(l.id, { treatment: e.target.value })} aria-label="处理" className="cell" />
               </div>
-            </div>
+                </div>
+              </ContextMenuTrigger>
+              {!readOnly && (
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    icon={<Trash2 />}
+                    danger
+                    onSelect={() => {
+                      pushUndo('删除泳道', () => set(structuredClone(data.lanes)))
+                      set(data.lanes.filter((x) => x.id !== l.id))
+                    }}
+                  >
+                    删除泳道
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              )}
+            </ContextMenu>
           ))}
         </div>
         {!readOnly && <AddRow onClick={() => set([...data.lanes, newLane()])}>添加泳道</AddRow>}

@@ -2,13 +2,15 @@ import { useEffect, useState } from 'react'
 import { DndContext, PointerSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Pause, Play, RotateCcw, Timer } from 'lucide-react'
+import { ArrowDown, ArrowUp, GripVertical, Pause, PencilLine, Play, RotateCcw, Timer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { BlockEditorProps } from './types'
 import { newStep, type ProtocolData, type Step } from './defs'
 import { cn } from '@/lib/util'
 import { pushUndo } from '@/lib/undo'
 import { AddRow, BlockTitle, Panel, RowDelete } from './kit'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/context-menu'
 
 // 计时器状态放在模块级：切换页面后不丢
 const timers = new Map<string, { endsAt: number | null; remain: number; total: number }>()
@@ -91,6 +93,7 @@ const fmt = (ms: number) => {
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}` : `${m}:${String(ss).padStart(2, '0')}`
 }
 
+/** 计时按钮：启动/暂停/倒计时；只在设过分钟数后出现 */
 function StepTimer({ step, readOnly }: { step: Step; readOnly: boolean }) {
   const t = useTimer(step.id)
   if (!step.minutes || readOnly) return step.minutes ? <span className="text-xs text-slate-500 tabular-nums">{step.minutes} 分钟</span> : null
@@ -120,93 +123,152 @@ function StepTimer({ step, readOnly }: { step: Step; readOnly: boolean }) {
   )
 }
 
+const QUICK_MINUTES = [5, 10, 15, 30, 60]
+
+/** 设置/更改计时分钟数：悬停行出现的小钮，点开弹层（列里常态只有一个控件） */
+function StepMinutesEdit({ step, update }: { step: Step; update: (patch: Partial<Step>) => void }) {
+  const [open, setOpen] = useState(false)
+  const [v, setV] = useState<string>(step.minutes ? String(step.minutes) : '')
+  const apply = (minutes: number | null) => {
+    update({ minutes })
+    setOpen(false)
+  }
+  return (
+    <Popover open={open} onOpenChange={(o) => {
+      setOpen(o)
+      if (o) setV(step.minutes ? String(step.minutes) : '')
+    }}>
+      <PopoverTrigger asChild>
+        <button
+          aria-label={step.minutes ? '更改计时' : '设置计时'}
+          title={step.minutes ? '更改计时' : '设置计时'}
+          className={cn('flex size-6 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300', step.minutes && 'opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100', !step.minutes && 'opacity-60')}
+        >
+          {step.minutes ? <PencilLine className="size-3" /> : <Timer className="size-3" />}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-52 p-2" align="end">
+        <div className="flex flex-wrap gap-1">
+          {QUICK_MINUTES.map((m) => (
+            <button
+              key={m}
+              onClick={() => apply(m)}
+              className={cn('h-7 cursor-pointer rounded-md px-2 text-xs tabular-nums transition', step.minutes === m ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700')}
+            >
+              {m} 分
+            </button>
+          ))}
+        </div>
+        <form
+          className="mt-2 flex items-center gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            apply(v.trim() ? Math.max(0, Number(v)) : null)
+          }}
+        >
+          <input type="number" min={0} inputMode="numeric" value={v} onChange={(e) => setV(e.target.value)} aria-label="分钟数" className="field h-8 flex-1" />
+          <button type="submit" className="h-8 cursor-pointer rounded-lg bg-brand-600 px-2.5 text-xs font-medium text-white hover:bg-brand-700">确定</button>
+        </form>
+        {step.minutes !== null && (
+          <button onClick={() => apply(null)} className="mt-1.5 w-full cursor-pointer rounded-md px-1 py-1 text-center text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">
+            取消计时
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 /** 清单式无框输入：列头承担提示，聚焦用轻背景提示位置 */
 const bare = 'w-full min-w-0 rounded-md bg-transparent px-1.5 py-1 outline-none transition focus:bg-slate-100/80 hover:placeholder:text-slate-400 dark:focus:bg-slate-800/70'
 
-function StepRow({ s, i, nextIdx, readOnly, update, onDelete }: { s: Step; i: number; nextIdx: number; readOnly: boolean; update: (id: string, patch: Partial<Step>) => void; onDelete: (s: Step) => void }) {
+function StepRow({ s, i, total, nextIdx, readOnly, update, onDelete, onMoveTo }: { s: Step; i: number; total: number; nextIdx: number; readOnly: boolean; update: (id: string, patch: Partial<Step>) => void; onDelete: (s: Step) => void; onMoveTo: (from: number, to: number) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: s.id, disabled: readOnly })
   return (
-    <tr
-      ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={cn('group/row border-b border-slate-50 last:border-0 dark:border-slate-800/60', i === nextIdx && !readOnly && 'bg-brand-50/40 dark:bg-brand-500/5', isDragging && 'bg-white shadow-pop dark:bg-slate-900', 'hover:bg-slate-50/70 dark:hover:bg-slate-800/30')}
-    >
-      <td className="py-1.5 pr-1 align-top">
-        <label className="mt-1 flex cursor-pointer items-center">
-          <input type="checkbox" checked={s.done} disabled={readOnly} onChange={(e) => update(s.id, { done: e.target.checked })} className="peer sr-only" aria-label={`第 ${i + 1} 步完成`} />
-          <span
-            className={cn(
-              'flex size-6 items-center justify-center rounded-full border text-[11px] font-semibold tabular-nums transition peer-focus-visible:ring-3 peer-focus-visible:ring-brand-500/30',
-              s.done ? 'border-emerald-500 bg-emerald-500 text-white' : i === nextIdx ? 'border-brand-500 text-brand-700 dark:text-brand-300' : 'border-slate-300 text-slate-500 dark:border-slate-600',
-            )}
-          >
-            {s.done ? '✓' : i + 1}
-          </span>
-        </label>
-      </td>
-      <td className="py-1.5 pr-2 align-top">
-        <input
-          value={s.title}
-          readOnly={readOnly}
-          onChange={(e) => update(s.id, { title: e.target.value })}
-          aria-label="步骤名称"
-          className={cn(bare, 'min-w-28 text-sm font-medium text-slate-800 dark:text-slate-100', s.done && 'text-slate-500 line-through dark:text-slate-500')}
-        />
-      </td>
-      <td className="w-full py-1.5 pr-2 align-top">
-        <input
-          value={s.params}
-          readOnly={readOnly}
-          onChange={(e) => update(s.id, { params: e.target.value })}
-          aria-label="条件参数"
-          className={cn(bare, 'text-[13px] text-slate-500 dark:text-slate-400')}
-        />
-        {(s.note || (!readOnly && s.done)) && (
-          <input
-            value={s.note}
-            readOnly={readOnly}
-            onChange={(e) => update(s.id, { note: e.target.value })}
-            placeholder="偏差"
-            aria-label="实际情况"
-            className={cn(bare, 'text-xs text-amber-700 dark:text-amber-300')}
-          />
-        )}
-      </td>
-      <td className="whitespace-nowrap py-1.5 pr-1 align-top">
-        <div className="mt-0.5 flex items-center gap-1.5">
-          {!readOnly && (
-            <label className="flex items-center gap-0.5 text-[11px] text-slate-400">
-              <input
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={s.minutes ?? ''}
-                onChange={(e) => update(s.id, { minutes: e.target.value ? Number(e.target.value) : null })}
-                aria-label="计时分钟数"
-                className={cn(bare, 'w-12 px-1 text-center text-xs tabular-nums')}
-              />
-              分
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <tr
+          ref={setNodeRef}
+          style={{ transform: CSS.Translate.toString(transform), transition }}
+          className={cn('group/row border-b border-slate-50 last:border-0 dark:border-slate-800/60', i === nextIdx && !readOnly && 'bg-brand-50/40 dark:bg-brand-500/5', isDragging && 'bg-white shadow-pop dark:bg-slate-900', 'hover:bg-slate-50/70 dark:hover:bg-slate-800/30')}
+        >
+          <td className="py-1.5 pr-1 align-top">
+            <label className="mt-1 flex cursor-pointer items-center">
+              <input type="checkbox" checked={s.done} disabled={readOnly} onChange={(e) => update(s.id, { done: e.target.checked })} className="peer sr-only" aria-label={`第 ${i + 1} 步完成`} />
+              <span
+                className={cn(
+                  'flex size-6 items-center justify-center rounded-full border text-[11px] font-semibold tabular-nums transition peer-focus-visible:ring-3 peer-focus-visible:ring-brand-500/30',
+                  s.done ? 'border-emerald-500 bg-emerald-500 text-white' : i === nextIdx ? 'border-brand-500 text-brand-700 dark:text-brand-300' : 'border-slate-300 text-slate-500 dark:border-slate-600',
+                )}
+              >
+                {s.done ? '✓' : i + 1}
+              </span>
             </label>
+          </td>
+          <td className="py-1.5 pr-2 align-top">
+            <input
+              value={s.title}
+              readOnly={readOnly}
+              onChange={(e) => update(s.id, { title: e.target.value })}
+              aria-label="步骤名称"
+              className={cn(bare, 'min-w-28 text-sm font-medium text-slate-800 dark:text-slate-100', s.done && 'text-slate-500 line-through dark:text-slate-500')}
+            />
+          </td>
+          <td className="w-full py-1.5 pr-2 align-top">
+            <input
+              value={s.params}
+              readOnly={readOnly}
+              onChange={(e) => update(s.id, { params: e.target.value })}
+              aria-label="条件参数"
+              className={cn(bare, 'text-[13px] text-slate-500 dark:text-slate-400')}
+            />
+            {(s.note || (!readOnly && s.done)) && (
+              <input
+                value={s.note}
+                readOnly={readOnly}
+                onChange={(e) => update(s.id, { note: e.target.value })}
+                placeholder="偏差"
+                aria-label="实际情况"
+                className={cn(bare, 'text-xs text-amber-700 dark:text-amber-300')}
+              />
+            )}
+          </td>
+          <td className="whitespace-nowrap py-1.5 pr-1 align-top">
+            <div className="mt-0.5 flex items-center gap-1.5">
+              <StepTimer step={s} readOnly={readOnly} />
+              {!readOnly && <StepMinutesEdit step={s} update={(patch) => update(s.id, patch)} />}
+            </div>
+          </td>
+          {!readOnly && (
+            <td className="w-16 py-1.5 align-top">
+              <div className="mt-0.5 flex items-center justify-end gap-0.5 opacity-100 transition lg:opacity-0 lg:group-hover/row:opacity-100 lg:focus-within:opacity-100">
+                <button
+                  {...attributes}
+                  {...listeners}
+                  aria-label="拖动排序"
+                  className="flex size-7 cursor-grab touch-none items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 active:cursor-grabbing dark:hover:bg-slate-800"
+                >
+                  <GripVertical className="size-3.5" />
+                </button>
+                <RowDelete onClick={() => onDelete(s)} label="删除这一步" />
+              </div>
+            </td>
           )}
-          <StepTimer step={s} readOnly={readOnly} />
-        </div>
-      </td>
-      {!readOnly && (
-        <td className="w-16 py-1.5 align-top">
-          <div className="mt-0.5 flex items-center justify-end gap-0.5 opacity-100 transition lg:opacity-0 lg:group-hover/row:opacity-100 lg:focus-within:opacity-100">
-            <button
-              {...attributes}
-              {...listeners}
-              aria-label="拖动排序"
-              className="flex size-7 cursor-grab touch-none items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 active:cursor-grabbing dark:hover:bg-slate-800"
-            >
-              <GripVertical className="size-3.5" />
-            </button>
-            <RowDelete onClick={() => onDelete(s)} label="删除这一步" />
-          </div>
-        </td>
-      )}
-    </tr>
+        </tr>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem icon={<ArrowUp />} disabled={readOnly || i === 0} onSelect={() => onMoveTo(i, i - 1)}>
+          上移一步
+        </ContextMenuItem>
+        <ContextMenuItem icon={<ArrowDown />} disabled={readOnly || i === total - 1} onSelect={() => onMoveTo(i, i + 1)}>
+          下移一步
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem icon={<Trash2 />} danger disabled={readOnly} onSelect={() => onDelete(s)}>
+          删除这一步
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   )
 }
 
@@ -221,15 +283,19 @@ export function ProtocolBlock({ data, onChange, readOnly }: BlockEditorProps<Pro
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
   )
+
+  /** 把 from 位置的步骤移动到 to（拖拽与右键菜单共用，可撤回） */
+  const moveStep = (from: number, to: number) => {
+    if (to < 0 || to >= data.steps.length || from === to) return
+    pushUndo('移动步骤', () => set(structuredClone(data.steps)))
+    const next = arrayMove(data.steps.map((s) => s.id), from, to)
+    set(next.map((id) => data.steps.find((s) => s.id === id)!))
+  }
+
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return
     const ids = data.steps.map((s) => s.id)
-    const from = ids.indexOf(String(e.active.id))
-    const to = ids.indexOf(String(e.over.id))
-    if (from < 0 || to < 0) return
-    pushUndo('移动步骤', () => set(structuredClone(data.steps)))
-    const next = arrayMove(ids, from, to)
-    set(next.map((id) => data.steps.find((s) => s.id === id)!))
+    moveStep(ids.indexOf(String(e.active.id)), ids.indexOf(String(e.over.id)))
   }
 
   const deleteStep = (s: Step) => {
@@ -269,7 +335,7 @@ export function ProtocolBlock({ data, onChange, readOnly }: BlockEditorProps<Pro
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
                 <SortableContext items={data.steps.map((s) => s.id)} strategy={verticalListSortingStrategy}>
                   {data.steps.map((s, i) => (
-                    <StepRow key={s.id} s={s} i={i} nextIdx={nextIdx} readOnly={readOnly} update={update} onDelete={deleteStep} />
+                    <StepRow key={s.id} s={s} i={i} total={total} nextIdx={nextIdx} readOnly={readOnly} update={update} onDelete={deleteStep} onMoveTo={moveStep} />
                   ))}
                 </SortableContext>
               </DndContext>

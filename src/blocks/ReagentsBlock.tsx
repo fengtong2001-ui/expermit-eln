@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Trash2 } from 'lucide-react'
 import type { BlockEditorProps } from './types'
 import { newReagentLine, type ReagentLine, type ReagentsData } from './defs'
 import { db } from '@/lib/db'
@@ -10,6 +10,7 @@ import { cn } from '@/lib/util'
 import { pushUndo } from '@/lib/undo'
 import { ReagentPicker } from '@/components/ReagentPicker'
 import { AddRow, NumInput, Panel, RowDelete } from './kit'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/context-menu'
 
 export function ReagentsBlock({ data, onChange, readOnly }: BlockEditorProps<ReagentsData>) {
   const ids = data.items.map((i) => i.reagentId).filter((x): x is string => !!x)
@@ -33,7 +34,9 @@ export function ReagentsBlock({ data, onChange, readOnly }: BlockEditorProps<Rea
           const r = it.reagentId ? reagents.get(it.reagentId) : undefined
           const alerts = r ? reagentAlerts(r) : []
           return (
-            <div key={it.id} className="group/row grid grid-cols-[minmax(0,1fr)_32px] items-center gap-x-2 gap-y-1 px-3 py-1.5 sm:grid-cols-[minmax(0,1fr)_96px_80px_minmax(0,0.8fr)_32px]">
+            <ContextMenu key={it.id}>
+              <ContextMenuTrigger asChild disabled={readOnly}>
+                <div className="group/row grid grid-cols-[minmax(0,1fr)_32px] items-center gap-x-2 gap-y-1 px-3 py-1.5 sm:grid-cols-[minmax(0,1fr)_96px_80px_minmax(0,0.8fr)_32px]">
               <div className="min-w-0">
                 {readOnly ? (
                   <span className="text-[13px]">{r?.name ?? it.name}</span>
@@ -74,7 +77,23 @@ export function ReagentsBlock({ data, onChange, readOnly }: BlockEditorProps<Rea
                 <input value={it.note} readOnly={readOnly} onChange={(e) => update(it.id, { note: e.target.value })} aria-label="备注" className="cell" />
               </div>
               {!readOnly ? <RowDelete onClick={() => { pushUndo('删除试剂行', () => onChange(structuredClone(data))); remove(it.id) }} /> : <span />}
-            </div>
+                </div>
+              </ContextMenuTrigger>
+              {!readOnly && (
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    icon={<Trash2 />}
+                    danger
+                    onSelect={() => {
+                      pushUndo('删除试剂行', () => onChange(structuredClone(data)))
+                      remove(it.id)
+                    }}
+                  >
+                    删除试剂行
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              )}
+            </ContextMenu>
           )
         })}
       </div>

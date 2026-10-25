@@ -1,14 +1,18 @@
 import { Link, useNavigate } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowRight, CalendarPlus, Check, FlaskConical, Plus, TestTubes, TriangleAlert } from 'lucide-react'
+import { ArrowRight, CalendarPlus, Check, Copy, FlaskConical, Plus, TestTubes, TriangleAlert, Trash2 } from 'lucide-react'
 import { db } from '@/lib/db'
 import { reagentAlerts, useExperiments, useProjects, useReagents } from '@/lib/hooks'
 import { todayStr, cn } from '@/lib/util'
 import { ui } from '@/lib/ui-store'
-import { addSchedule } from '@/lib/repo'
+import { deleteSchedule, updateSchedule } from '@/lib/repo'
+import { pushUndo, undoById } from '@/lib/undo'
 import { schedDone, toggleScheduleDone } from '@/lib/scheduleDone'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/Shell'
 import { ExperimentCard } from '@/components/ExperimentCard'
+import { ScheduleDialog } from '@/components/ScheduleDialog'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/components/context-menu'
 import { Button, EmptyState } from '@/components/ui'
 import { useState } from 'react'
 
@@ -35,7 +39,7 @@ export function TodayPage() {
     [today],
     [],
   )
-  const [quick, setQuick] = useState('')
+  const [addOpen, setAddOpen] = useState(false)
 
   const active = (exps ?? []).filter((e) => e.status === 'running' || e.status === 'planned').slice(0, 6)
   const alerts = (reagents ?? []).map((r) => ({ r, a: reagentAlerts(r) })).filter((x) => x.a.length)
@@ -108,7 +112,9 @@ export function TodayPage() {
               const e = s.experimentId ? expTitle.get(s.experimentId) : undefined
               const isDone = schedDone(s, e)
               return (
-                <li key={s.id} className="flex items-start gap-2.5 rounded-lg px-1 py-1.5">
+                <ContextMenu key={s.id}>
+                  <ContextMenuTrigger asChild>
+                    <li className="flex items-start gap-2.5 rounded-lg px-1 py-1.5">
                       <button
                         onClick={() => toggleScheduleDone(s, e)}
                         aria-label={isDone ? '标为未完成' : '标为完成'}
@@ -124,34 +130,52 @@ export function TodayPage() {
                           {s.time && <span className="mr-1.5 text-slate-500 tabular-nums">{s.time}</span>}
                           {s.title}
                         </p>
-                        {e && (
+                      {e && (
                           <Link to={`/experiments/${e.id}`} className="text-xs text-brand-700 hover:underline dark:text-brand-300">
                             → {e.title}
                           </Link>
                         )}
                       </div>
                     </li>
-                  )
-                })}
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem icon={<Check />} onSelect={() => toggleScheduleDone(s, e)}>
+                      {isDone ? '标为未完成' : '标为完成'}
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      icon={<Copy />}
+                      onSelect={() => {
+                        void navigator.clipboard.writeText(s.title)
+                        toast.success('已复制')
+                      }}
+                    >
+                      复制内容
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      icon={<Trash2 />}
+                      danger
+                      onSelect={() => {
+                        void (async () => {
+                          await deleteSchedule(s.id)
+                          const uid = pushUndo('删除日程', () => void updateSchedule(s.id, { deletedAt: null }))
+                          toast('已删除日程', { action: { label: '撤销', onClick: () => undoById(uid) } })
+                        })()
+                      }}
+                    >
+                      删除
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </ContextMenu>
+              )
+            })}
               </ul>
-              <form
-                className="mt-1 flex items-center gap-2"
-                onSubmit={async (e) => {
-                  e.preventDefault()
-                  if (!quick.trim()) return
-                  const m = /^(\d{1,2}[:：]\d{2})\s*(.+)$/.exec(quick.trim())
-                  await addSchedule({ date: today, time: m ? m[1].replace('：', ':').padStart(5, '0') : '', title: m ? m[2] : quick.trim(), note: '', done: false, experimentId: null })
-                  setQuick('')
-                }}
+              <button
+                onClick={() => setAddOpen(true)}
+                className="mt-1 flex h-9 w-full cursor-pointer items-center gap-2 rounded-lg px-2 text-[13px] text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 dark:hover:bg-slate-800/50 dark:hover:text-slate-200"
               >
-                <CalendarPlus className="size-4 shrink-0 text-slate-400" />
-                <input
-                  value={quick}
-                  onChange={(e) => setQuick(e.target.value)}
-                  placeholder="安排"
-                  className="h-8 flex-1 rounded-md border border-slate-200 px-2 text-[13px] outline-none placeholder:text-slate-400 hover:border-slate-300 focus:border-brand-500 dark:border-slate-700 dark:hover:border-slate-600"
-                />
-              </form>
+                <CalendarPlus className="size-4 shrink-0 text-slate-400" /> 添加安排
+              </button>
               {upcoming.filter((u) => u.date !== today).length > 0 && (
                 <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-800">
                   <p className="mb-1.5 text-[11px] font-medium text-slate-500">接下来</p>
@@ -195,6 +219,8 @@ export function TodayPage() {
           </aside>
         </div>
       </div>
+
+      <ScheduleDialog open={addOpen} onOpenChange={setAddOpen} defaultDate={today} />
     </div>
   )
 }

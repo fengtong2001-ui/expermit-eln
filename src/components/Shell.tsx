@@ -9,6 +9,7 @@ import {
   FolderClosed,
   LayoutTemplate,
   Loader2,
+  Pencil,
   Plus,
   Search,
   Settings,
@@ -29,11 +30,12 @@ import { CommandPalette } from './CommandPalette'
 import { NewExperimentDialog } from './NewExperimentDialog'
 import { UndoBar } from './UndoBar'
 import { Button, Kbd, Tip } from './ui'
-import { createProject } from '@/lib/repo'
+import { createProject, deleteProject, updateProject } from '@/lib/repo'
 import { syncNow, useSyncStatus } from '@/lib/sync/engine'
-import { popUndo } from '@/lib/undo'
+import { popUndo, pushUndo } from '@/lib/undo'
 import { promptDialog } from './prompt'
 import { toast } from 'sonner'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from './context-menu'
 
 function NavItem({ to, icon, children, end, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; badge?: ReactNode }) {
   return (
@@ -146,6 +148,17 @@ export function Shell() {
     navigate(`/experiments?project=${p.id}`)
   }
 
+  const renameProject = async (id: string, name: string) => {
+    const r = await promptDialog({ title: '重命名项目', label: '项目名称', initial: name, confirmText: '保存' })
+    if (!r || r.value === name) return
+    await updateProject(id, { name: r.value })
+  }
+  const removeProject = async (id: string) => {
+    await deleteProject(id)
+    pushUndo('删除项目', () => void updateProject(id, { deletedAt: null }))
+    toast('项目已删除，项目里的实验已移到「未归类」')
+  }
+
   const params = new URLSearchParams(loc.search)
   const activeProject = loc.pathname === '/experiments' ? params.get('project') : null
 
@@ -213,20 +226,31 @@ export function Shell() {
           </div>
           {projects.length === 0 && <p className="px-2.5 py-1 text-xs text-slate-500">还没有项目</p>}
           {projects.map((p) => (
-            <NavLink
-              key={p.id}
-              to={`/experiments?project=${p.id}`}
-              className={cn(
-                'flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] transition',
-                activeProject === p.id
-                  ? 'bg-white font-medium text-slate-900 shadow-xs ring-1 ring-slate-200/70 dark:bg-slate-800 dark:text-white dark:ring-slate-700'
-                  : 'text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/60',
-              )}
-            >
-              <span className={cn('size-2 rounded-full', KIND_STYLES[p.color]?.dot)} />
-              <span className="flex-1 truncate">{p.name}</span>
-              <span className="text-xs text-slate-500">{counts?.byProject[p.id] || ''}</span>
-            </NavLink>
+            <ContextMenu key={p.id}>
+              <ContextMenuTrigger asChild>
+                <NavLink
+                  to={`/experiments?project=${p.id}`}
+                  className={cn(
+                    'flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-[13px] transition',
+                    activeProject === p.id
+                      ? 'bg-white font-medium text-slate-900 shadow-xs ring-1 ring-slate-200/70 dark:bg-slate-800 dark:text-white dark:ring-slate-700'
+                      : 'text-slate-600 hover:bg-slate-200/50 dark:text-slate-400 dark:hover:bg-slate-800/60',
+                  )}
+                >
+                  <span className={cn('size-2 rounded-full', KIND_STYLES[p.color]?.dot)} />
+                  <span className="flex-1 truncate">{p.name}</span>
+                  <span className="text-xs text-slate-500">{counts?.byProject[p.id] || ''}</span>
+                </NavLink>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem icon={<Pencil />} onSelect={() => void renameProject(p.id, p.name)}>
+                  重命名项目
+                </ContextMenuItem>
+                <ContextMenuItem icon={<Trash2 />} danger onSelect={() => void removeProject(p.id)}>
+                  删除项目
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           ))}
         </nav>
 

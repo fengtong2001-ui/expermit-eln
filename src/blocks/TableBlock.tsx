@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, Trash2, X } from 'lucide-react'
 import type { BlockEditorProps } from './types'
 import type { TableData } from './defs'
 import { mean, sd } from '@/lib/qpcr'
 import { AddRow, BlockTitle, Panel, RowDelete } from './kit'
 import { pushUndo } from '@/lib/undo'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/context-menu'
 
 /** 解析 Excel / 制表符分隔文本 */
 export function parseTSV(text: string): string[][] {
@@ -79,7 +80,9 @@ export function TableBlock({ data, onChange, readOnly }: BlockEditorProps<TableD
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {data.rows.map((row, i) => (
-                <tr key={i} className="group/row">
+                <ContextMenu key={i}>
+                  <ContextMenuTrigger asChild disabled={readOnly}>
+                    <tr className="group/row">
                   {data.columns.map((_, j) => (
                     <td key={j} className="p-0.5">
                       <input
@@ -97,7 +100,23 @@ export function TableBlock({ data, onChange, readOnly }: BlockEditorProps<TableD
                       <RowDelete onClick={() => { pushUndo('删除行', () => onChange(structuredClone(data))); onChange({ ...data, rows: data.rows.filter((_, k) => k !== i) }) }} />
                     </td>
                   )}
-                </tr>
+                  </tr>
+                </ContextMenuTrigger>
+                {!readOnly && (
+                  <ContextMenuContent>
+                    <ContextMenuItem
+                      icon={<Trash2 />}
+                      danger
+                      onSelect={() => {
+                        pushUndo('删除行', () => onChange(structuredClone(data)))
+                        onChange({ ...data, rows: data.rows.filter((_, k) => k !== i) })
+                      }}
+                    >
+                      删除行
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                )}
+              </ContextMenu>
               ))}
             </tbody>
             {stats.some(Boolean) && (

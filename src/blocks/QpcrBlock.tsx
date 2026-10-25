@@ -1,11 +1,12 @@
 import { useMemo } from 'react'
-import { Info, TriangleAlert } from 'lucide-react'
+import { Info, Trash2, TriangleAlert } from 'lucide-react'
 import type { BlockEditorProps } from './types'
 import { newQpcrRow, type QpcrData } from './defs'
 import { computeDDCt, type QpcrRow } from '@/lib/qpcr'
 import { AddRow, NumInput, Panel, RowDelete } from './kit'
 import { Field, Popover, PopoverContent, PopoverTrigger } from '@/components/ui'
 import { pushUndo } from '@/lib/undo'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/context-menu'
 
 /** 从 Excel / 仪器导出粘贴：每行「样品 组别 基因 Ct1 Ct2 …」，制表符或逗号分隔 */
 function parsePaste(text: string, replicates: number): QpcrRow[] | null {
@@ -90,7 +91,9 @@ export function QpcrBlock({ data, onChange, readOnly }: BlockEditorProps<QpcrDat
               }}
             >
               {data.rows.map((r) => (
-                <tr key={r.id} className="group/row">
+                <ContextMenu key={r.id}>
+                  <ContextMenuTrigger asChild disabled={readOnly}>
+                    <tr className="group/row">
                   <td className="px-1 py-0.5 pl-2">
                     <input className="cell" value={r.sample} readOnly={readOnly} onChange={(e) => update(r.id, { sample: e.target.value })} aria-label="样品" />
                   </td>
@@ -112,7 +115,23 @@ export function QpcrBlock({ data, onChange, readOnly }: BlockEditorProps<QpcrDat
                     </td>
                   ))}
                   <td>{!readOnly && <RowDelete onClick={() => { pushUndo('删除行', () => setRows(structuredClone(data.rows))); setRows(data.rows.filter((x) => x.id !== r.id)) }} />}</td>
-                </tr>
+                  </tr>
+                </ContextMenuTrigger>
+                {!readOnly && (
+                  <ContextMenuContent>
+                    <ContextMenuItem
+                      icon={<Trash2 />}
+                      danger
+                      onSelect={() => {
+                        pushUndo('删除行', () => setRows(structuredClone(data.rows)))
+                        setRows(data.rows.filter((x) => x.id !== r.id))
+                      }}
+                    >
+                      删除行
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                )}
+              </ContextMenu>
               ))}
             </tbody>
           </table>

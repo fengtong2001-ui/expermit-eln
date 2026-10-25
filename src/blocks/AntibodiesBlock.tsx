@@ -1,5 +1,5 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Trash2 } from 'lucide-react'
 import type { BlockEditorProps } from './types'
 import { antibodyMicroliters, newAntibody, type AntibodiesData, type Antibody } from './defs'
 import { db } from '@/lib/db'
@@ -9,6 +9,7 @@ import { pushUndo } from '@/lib/undo'
 import { ReagentPicker } from '@/components/ReagentPicker'
 import { AddRow, NumInput, Panel, RowDelete } from './kit'
 import { Segmented } from '@/components/ui'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/context-menu'
 
 export function AntibodiesBlock({ data, onChange, readOnly }: BlockEditorProps<AntibodiesData>) {
   const ids = data.items.map((i) => i.reagentId).filter((x): x is string => !!x)
@@ -34,7 +35,9 @@ export function AntibodiesBlock({ data, onChange, readOnly }: BlockEditorProps<A
           const r = a.reagentId ? reagents.get(a.reagentId) : undefined
           const ul = antibodyMicroliters(a)
           return (
-            <div key={a.id} className="group/row flex flex-wrap items-center gap-2 px-3 py-2.5">
+            <ContextMenu key={a.id}>
+              <ContextMenuTrigger asChild disabled={readOnly}>
+                <div className="group/row flex flex-wrap items-center gap-2 px-3 py-2.5">
               {readOnly ? (
                 <span className={cn('rounded-md px-1.5 py-0.5 text-[11px] font-medium', a.kind === '一抗' ? 'bg-violet-50 text-violet-700' : 'bg-sky-50 text-sky-700')}>{a.kind}</span>
               ) : (
@@ -78,7 +81,23 @@ export function AntibodiesBlock({ data, onChange, readOnly }: BlockEditorProps<A
                 )}
               </span>
               {!readOnly && <RowDelete onClick={() => { pushUndo('删除抗体', () => onChange(structuredClone(data))); onChange({ items: data.items.filter((x) => x.id !== a.id) }) }} label="删除抗体" />}
-            </div>
+                </div>
+              </ContextMenuTrigger>
+              {!readOnly && (
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    icon={<Trash2 />}
+                    danger
+                    onSelect={() => {
+                      pushUndo('删除抗体', () => onChange(structuredClone(data)))
+                      onChange({ items: data.items.filter((x) => x.id !== a.id) })
+                    }}
+                  >
+                    删除抗体
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              )}
+            </ContextMenu>
           )
         })}
       </div>

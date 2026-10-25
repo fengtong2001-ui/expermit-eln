@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ClipboardPaste, Copy, Eraser, Palette, Plus, X } from 'lucide-react'
+import { ClipboardPaste, Copy, Eraser, Palette, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import type { BlockEditorProps } from './types'
 import type { PlateData, PlateGroup, Well } from './defs'
@@ -9,6 +9,7 @@ import { BlockTitle } from './kit'
 import { Button, Popover, PopoverContent, PopoverTrigger, Segmented } from '@/components/ui'
 import { confirmDialog } from '@/components/confirm'
 import { pushUndo } from '@/lib/undo'
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/context-menu'
 
 const EMPTY: Well = { sample: '', treatment: '', note: '', group: null }
 const isEmptyWell = (w?: Well) => !w || (!w.sample && !w.treatment && !w.note && !w.group)
@@ -318,8 +319,19 @@ export function PlateBlock({ data, onChange, readOnly }: BlockEditorProps<PlateD
               {groups.map((g) => {
                 const c = GROUP_COLORS.find((x) => x.id === g.color)!
                 const n = Object.values(data.wells).filter((w) => w.group === g.id).length
+                const delGroup = () => {
+                  pushUndo('删除分组', () => onChange(structuredClone(data)))
+                  const wells: Record<string, Well> = {}
+                  for (const [k, w] of Object.entries(data.wells)) {
+                    const nw = w.group === g.id ? { ...w, group: null } : w
+                    if (!isEmptyWell(nw)) wells[k] = nw
+                  }
+                  onChange({ ...data, wells, groups: groups.filter((x) => x.id !== g.id) })
+                }
                 return (
-                  <span key={g.id} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white py-0.5 pr-2 pl-1 text-xs dark:border-slate-700 dark:bg-slate-900">
+                  <ContextMenu key={g.id}>
+                    <ContextMenuTrigger asChild disabled={readOnly}>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white py-0.5 pr-2 pl-1 text-xs dark:border-slate-700 dark:bg-slate-900">
                     <span className="size-3.5 rounded-full border" style={{ background: c.soft, borderColor: c.fill }} />
                     {readOnly ? (
                       g.name
@@ -336,20 +348,21 @@ export function PlateBlock({ data, onChange, readOnly }: BlockEditorProps<PlateD
                       <button
                         aria-label={`删除分组 ${g.name}`}
                         className="cursor-pointer text-slate-400 hover:text-rose-500"
-                        onClick={() => {
-                          pushUndo('删除分组', () => onChange(structuredClone(data)))
-                          const wells: Record<string, Well> = {}
-                          for (const [k, w] of Object.entries(data.wells)) {
-                            const nw = w.group === g.id ? { ...w, group: null } : w
-                            if (!isEmptyWell(nw)) wells[k] = nw
-                          }
-                          onChange({ ...data, wells, groups: groups.filter((x) => x.id !== g.id) })
-                        }}
+                        onClick={delGroup}
                       >
                         <X className="size-3" />
                       </button>
                     )}
-                  </span>
+                      </span>
+                    </ContextMenuTrigger>
+                    {!readOnly && (
+                      <ContextMenuContent>
+                        <ContextMenuItem icon={<Trash2 />} danger onSelect={delGroup}>
+                          删除分组
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    )}
+                  </ContextMenu>
                 )
               })}
             </div>

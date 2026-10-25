@@ -15,7 +15,8 @@ contextBridge.exposeInMainWorld('expermitDesktop', {
   getInfo: () => ipcRenderer.invoke('app:info'),
   downloadUpdate: (url) => ipcRenderer.invoke('update:download', url),
   installUpdate: (exePath) => ipcRenderer.invoke('update:install', exePath),
-  chooseDataDir: () => ipcRenderer.invoke('data:choose'),
+  pickDataDir: () => ipcRenderer.invoke('data:pick-dir'),
+  applyDataDir: (dir, deleteOld) => ipcRenderer.invoke('data:apply-dir', dir, deleteOld),
   onUpdateProgress: (cb) => {
     const listener = (_e, pct) => cb(pct)
     ipcRenderer.on('update:progress', listener)

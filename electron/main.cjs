@@ -33,17 +33,26 @@ let win = null
 
 // —— 数据存储位置：marker（写在 userData 之外，固定可达）指向自定义目录 ——
 // 启动时若自定义目录尚无数据，先把默认 userData 复制过去，再切换；失败则回落默认位置。
+// marker 可带 deleteFrom：迁移确认成功后删除旧目录（用户在设置里显式选择）。
 const dataMarker = () => path.join(app.getPath('appData'), 'expermit-data-location.json')
 function applyCustomDataDir() {
   try {
     if (!fs.existsSync(dataMarker())) return
-    const { dir } = JSON.parse(fs.readFileSync(dataMarker(), 'utf8'))
-    if (!dir || typeof dir !== 'string') return
+    const m = JSON.parse(fs.readFileSync(dataMarker(), 'utf8'))
+    const dir = typeof m?.dir === 'string' ? m.dir : null
+    if (!dir) return
     const target = path.resolve(dir)
     const def = app.getPath('userData')
     if (target === path.resolve(def) || !fs.existsSync(path.dirname(target))) return
-    if (!fs.existsSync(target)) fs.cpSync(def, target, { recursive: true })
+    const src = typeof m.deleteFrom === 'string' && fs.existsSync(m.deleteFrom) ? m.deleteFrom : def
+    if (!fs.existsSync(target)) fs.cpSync(src, target, { recursive: true })
     app.setPath('userData', target)
+    // 新位置已就绪：若用户要求删除旧目录，删除（只接受 marker 里记录的旧路径，且不等于当前位置）
+    if (typeof m.deleteFrom === 'string' && path.resolve(m.deleteFrom) !== target && fs.existsSync(m.deleteFrom)) {
+      fs.rmSync(m.deleteFrom, { recursive: true, force: true })
+    }
+    delete m.deleteFrom
+    fs.writeFileSync(dataMarker(), JSON.stringify(m, null, 2), 'utf8')
   } catch {
     /* marker 损坏则继续用默认位置 */
   }
@@ -80,15 +89,22 @@ function registerIpc() {
     setTimeout(() => app.quit(), 300)
   })
 
-  // 更改数据存储位置：选目录 → 写 marker → 重启（启动时完成数据迁移）
-  ipcMain.handle('data:choose', async () => {
+  // 更改数据存储位置：先只选目录；确认后写 marker（可带 deleteFrom=删除旧目录）→ 重启完成迁移
+  ipcMain.handle('data:pick-dir', async () => {
     const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'], title: '选择数据存储位置' })
-    if (r.canceled || !r.filePaths[0]) return null
-    const dir = r.filePaths[0]
-    await fs.promises.writeFile(dataMarker(), JSON.stringify({ dir }, null, 2), 'utf8')
+    return r.canceled ? null : r.filePaths[0]
+  })
+
+  ipcMain.handle('data:apply-dir', async (_e, dir, deleteOld) => {
+    if (typeof dir !== 'string' || !dir || !fs.existsSync(path.dirname(dir))) throw new Error('bad dir')
+    const cur = app.getPath('userData')
+    if (path.resolve(dir) === path.resolve(cur)) return 'same'
+    const m = { dir }
+    if (deleteOld && path.resolve(cur) !== path.resolve(dir)) m.deleteFrom = cur
+    await fs.promises.writeFile(dataMarker(), JSON.stringify(m, null, 2), 'utf8')
     app.relaunch()
     app.exit(0)
-    return dir
+    return 'ok'
   })
 }
 

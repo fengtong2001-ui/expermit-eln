@@ -3,7 +3,8 @@ export interface DesktopApi {
   getInfo(): Promise<{ version: string; dataDir: string }>
   downloadUpdate(url: string): Promise<string>
   installUpdate(exePath: string): Promise<void>
-  chooseDataDir(): Promise<string | null>
+  pickDataDir(): Promise<string | null>
+  applyDataDir(dir: string, deleteOld: boolean): Promise<'ok' | 'same'>
   onUpdateProgress(cb: (pct: number) => void): () => void
 }
 
