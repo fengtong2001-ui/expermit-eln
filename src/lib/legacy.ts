@@ -87,7 +87,7 @@ export async function importLegacy(dump: LegacyDump) {
   const expMap = new Map<number, string>()
   let project = await db.projects.where('name').equals('从旧版导入').first()
   if (!project && (dump.experiments ?? []).length) {
-    project = { id: uid(), name: '从旧版导入', color: 'slate', createdAt: Date.now() }
+    project = { id: uid(), name: '从旧版导入', color: 'slate', createdAt: Date.now(), updatedAt: Date.now() }
     await db.projects.add(project)
   }
   for (const e of dump.experiments ?? []) {
@@ -137,6 +137,7 @@ export async function importLegacy(dump: LegacyDump) {
       done: s.status === '已完成',
       experimentId: s.experiment_id ? (expMap.get(s.experiment_id) ?? null) : null,
       createdAt: Date.now(),
+      updatedAt: Date.now(),
     })
   }
   return { experiments: expMap.size, reagents: reagentMap.size, schedules: (dump.schedules ?? []).length }

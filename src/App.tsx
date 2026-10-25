@@ -9,6 +9,7 @@ import { TodayPage } from './pages/Today'
 import { ExperimentsPage } from './pages/Experiments'
 import { NotFound } from './pages/NotFound'
 import { ensureSeed } from './lib/seed'
+import { startAutoSync } from './lib/sync/engine'
 import { purgeExpiredTrash } from './lib/repo'
 import { useTheme } from './lib/theme'
 
@@ -44,6 +45,7 @@ export default function App() {
     void ensureSeed()
     void purgeExpiredTrash()
     void navigator.storage?.persist?.()
+    startAutoSync()
   }, [])
   return (
     <TooltipProvider>

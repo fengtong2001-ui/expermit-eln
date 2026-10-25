@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 import { KIND_STYLES, kindOf } from '@/lib/kinds'
 import { ui } from '@/lib/ui-store'
 import { defOf } from '@/blocks/defs'
+import { deleteTemplate } from '@/lib/repo'
 import { ICONS } from '@/blocks/registry'
 import { cn, formatDate } from '@/lib/util'
 import { PageHeader } from '@/components/Shell'
@@ -13,7 +14,7 @@ import { promptDialog } from '@/components/prompt'
 import type { BlockType } from '@/blocks/defs'
 
 export function TemplatesPage() {
-  const templates = useLiveQuery(() => db.templates.toArray(), [], [])
+  const templates = useLiveQuery(async () => (await db.templates.toArray()).filter((t) => !t.deletedAt), [], [])
   const builtin = templates.filter((t) => t.builtin)
   const mine = templates.filter((t) => !t.builtin).sort((a, b) => b.createdAt - a.createdAt)
 
@@ -63,8 +64,8 @@ export function TemplatesPage() {
                   variant="ghost"
                   aria-label="删除模板"
                   onClick={async () => {
-                    await db.templates.delete(t.id)
-                    toast('已删除模板', { action: { label: '撤销', onClick: () => void db.templates.add(t) } })
+                    await deleteTemplate(t.id)
+                    toast('已删除模板', { action: { label: '撤销', onClick: () => void db.templates.update(t.id, { deletedAt: null, updatedAt: Date.now() }) } })
                   }}
                 >
                   <Trash2 />

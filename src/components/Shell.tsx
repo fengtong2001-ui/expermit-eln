@@ -1,6 +1,8 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import {
   CalendarDays,
+  CloudCheck,
+  CloudAlert,
   CheckCircle2,
   CloudOff,
   FlaskConical,
@@ -19,7 +21,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/db'
 import { useProjects, isTypingTarget, reagentAlerts } from '@/lib/hooks'
-import { cn, formatTime, modKey } from '@/lib/util'
+import { cn, formatTime, modKey, relativeTime } from '@/lib/util'
 import { ui } from '@/lib/ui-store'
 import { useSaveState, saveState } from '@/lib/saveState'
 import { KIND_STYLES } from '@/lib/kinds'
@@ -27,6 +29,7 @@ import { CommandPalette } from './CommandPalette'
 import { NewExperimentDialog } from './NewExperimentDialog'
 import { Button, Kbd, Tip } from './ui'
 import { createProject } from '@/lib/repo'
+import { syncNow, useSyncStatus } from '@/lib/sync/engine'
 import { promptDialog } from './prompt'
 import { toast } from 'sonner'
 
@@ -100,6 +103,7 @@ export function SaveIndicator() {
 
 export function Shell() {
   const projects = useProjects()
+  const syncStatus = useSyncStatus()
   const navigate = useNavigate()
   const loc = useLocation()
   const counts = useLiveQuery(async () => {
@@ -221,6 +225,31 @@ export function Shell() {
         </nav>
 
         <div className="space-y-0.5 border-t border-slate-200/80 p-3 dark:border-slate-800">
+          {syncStatus.kind !== 'unconfigured' && (
+            <button
+              onClick={() =>
+                void syncNow('manual')
+                  .then((r) => {
+                    const parts = [r.pulled ? `接收 ${r.pulled} 项` : '', r.uploadedFiles ? `上传 ${r.uploadedFiles} 个附件` : '', r.downloadedFiles ? `下载 ${r.downloadedFiles} 个附件` : ''].filter(Boolean)
+                    toast.success(parts.length ? `同步完成：${parts.join('，')}` : '同步完成，两边内容一致')
+                  })
+                  .catch(() => {})
+              }
+              className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition hover:bg-slate-200/50 dark:hover:bg-slate-800/60"
+              title={syncStatus.kind === 'error' ? syncStatus.message : syncStatus.kind === 'idle' && syncStatus.lastSync ? `上次同步 ${new Date(syncStatus.lastSync).toLocaleString('zh-CN')}` : '点击立即同步'}
+            >
+              {syncStatus.kind === 'syncing' ? (
+                <Loader2 className="size-4 shrink-0 animate-spin text-slate-400" />
+              ) : syncStatus.kind === 'error' ? (
+                <CloudAlert className="size-4 shrink-0 text-rose-500" />
+              ) : (
+                <CloudCheck className="size-4 shrink-0 text-emerald-500" />
+              )}
+              <span className={cn('flex-1 truncate', syncStatus.kind === 'error' ? 'text-rose-600' : 'text-slate-500')}>
+                {syncStatus.kind === 'syncing' ? (syncStatus.note ?? '同步中…') : syncStatus.kind === 'error' ? '同步失败，点击重试' : syncStatus.kind === 'idle' && syncStatus.lastSync ? `已同步 ${relativeTime(syncStatus.lastSync)}` : '点击立即同步'}
+              </span>
+            </button>
+          )}
           <NavItem to="/trash" icon={<Trash2 />}>
             回收站
           </NavItem>

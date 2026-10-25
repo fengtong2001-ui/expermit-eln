@@ -10,6 +10,8 @@ import { formatBytes, formatDateTime, modKey } from '@/lib/util'
 import { PageHeader } from '@/components/Shell'
 import { Button, Kbd, Segmented } from '@/components/ui'
 import { confirmDialog } from '@/components/confirm'
+import { SyncSettings } from '@/components/SyncSettings'
+import { Cloud } from 'lucide-react'
 
 function Section({ icon, title, children, desc }: { icon: React.ReactNode; title: string; desc?: string; children: React.ReactNode }) {
   return (
@@ -97,6 +99,10 @@ export function SettingsPage() {
               {persisted && ' 已启用持久存储。'}
             </p>
           )}
+        </Section>
+
+        <Section icon={<Cloud />} title="多设备同步（网络存储）" desc="通过 GitHub 私有仓库或 WebDAV 在电脑和手机之间自动同步。">
+          <SyncSettings />
         </Section>
 
         <Section icon={<DatabaseBackup />} title="备份与恢复" desc="备份文件是一个 zip，包含全部实验、试剂、日程、模板、历史版本和图片。">

@@ -38,7 +38,7 @@ export function SchedulePage() {
   const items = useLiveQuery(() => db.schedules.where('date').between(cells[0].date, cells[cells.length - 1].date, true, true).toArray(), [cells[0].date], [])
   const byDate = useMemo(() => {
     const m = new Map<string, Schedule[]>()
-    for (const s of items) m.set(s.date, [...(m.get(s.date) ?? []), s])
+    for (const s of items) if (!s.deletedAt) m.set(s.date, [...(m.get(s.date) ?? []), s])
     for (const v of m.values()) v.sort((a, b) => (a.time || '99').localeCompare(b.time || '99'))
     return m
   }, [items])

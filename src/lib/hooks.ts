@@ -4,7 +4,7 @@ import { db } from './db'
 import { daysUntil } from './util'
 import type { Reagent } from './types'
 
-export const useProjects = () => useLiveQuery(() => db.projects.orderBy('createdAt').toArray(), [], [])
+export const useProjects = () => useLiveQuery(async () => (await db.projects.orderBy('createdAt').toArray()).filter((x) => !x.deletedAt), [], [])
 
 export const useExperiments = () =>
   useLiveQuery(async () => (await db.experiments.orderBy('updatedAt').reverse().toArray()).filter((e) => !e.deletedAt), [], undefined)

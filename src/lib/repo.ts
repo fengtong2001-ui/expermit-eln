@@ -13,20 +13,21 @@ const POS_STEP = 1024
 
 export async function createProject(name: string): Promise<Project> {
   const count = await db.projects.count()
-  const p: Project = { id: uid(), name: name.trim() || '未命名项目', color: PROJECT_COLORS[count % PROJECT_COLORS.length], createdAt: now() }
+  const p: Project = { id: uid(), name: name.trim() || '未命名项目', color: PROJECT_COLORS[count % PROJECT_COLORS.length], createdAt: now(), updatedAt: now() }
   await db.projects.add(p)
   return p
 }
 
 export async function updateProject(id: string, patch: Partial<Project>) {
-  await db.projects.update(id, patch)
+  await db.projects.update(id, { ...patch, updatedAt: now() })
 }
 
-/** 删除项目不删实验：实验移到「未归类」 */
+/** 删除项目不删实验：实验移到「未归类」。项目留墓碑，便于多设备同步收敛 */
 export async function deleteProject(id: string) {
+  const t = now()
   await db.transaction('rw', db.projects, db.experiments, async () => {
-    await db.experiments.where('projectId').equals(id).modify({ projectId: null })
-    await db.projects.delete(id)
+    await db.experiments.where('projectId').equals(id).modify({ projectId: null, updatedAt: t })
+    await db.projects.update(id, { deletedAt: t, updatedAt: t })
   })
 }
 
@@ -80,7 +81,7 @@ export async function createExperiment(input: NewExperimentInput): Promise<Exper
     await db.experiments.add(e)
     if (blocks.length) await db.blocks.bulkAdd(blocks)
     if (e.plannedDate) {
-      await db.schedules.add({ id: uid(), date: e.plannedDate, time: '', title: e.title, note: '', done: false, experimentId: e.id, createdAt: t })
+      await db.schedules.add({ id: uid(), date: e.plannedDate, time: '', title: e.title, note: '', done: false, experimentId: e.id, createdAt: t, updatedAt: t })
     }
   })
   return e
@@ -134,11 +135,13 @@ export async function recordEditAfterClose(id: string, what: string) {
 }
 
 export async function trashExperiment(id: string) {
-  await db.experiments.update(id, { deletedAt: now() })
+  const t = now()
+  await db.experiments.update(id, { deletedAt: t, updatedAt: t })
 }
 
 export async function restoreExperiment(id: string) {
-  await db.experiments.update(id, { deletedAt: null })
+  const t = now()
+  await db.experiments.update(id, { deletedAt: null, updatedAt: t })
 }
 
 export async function purgeExperiment(id: string) {
@@ -215,12 +218,46 @@ export async function rebalance(experimentId: string) {
   await db.blocks.bulkUpdate(list.map((b, i) => ({ key: b.id, changes: { position: (i + 1) * POS_STEP } })))
 }
 
-/** 按给定顺序整体重排，一个事务完成 */
-export async function reorderBlocks(experimentId: string, orderedIds: string[]) {
-  await db.transaction('rw', db.blocks, async () => {
-    await db.blocks.bulkUpdate(orderedIds.map((id, i) => ({ key: id, changes: { position: (i + 1) * POS_STEP } })))
-  })
+/**
+ * 把 index from 的块移动到 to。只重写 from..to 之间块的排序键，
+ * 并只给这些块盖 updatedAt——避免一次拖动把整篇块的时间戳刷新，
+ * 那样多设备合并时会盖掉另一台设备上真正的内容修改。
+ */
+export async function moveBlockRange(experimentId: string, from: number, to: number) {
+  const list = await liveBlocks(experimentId)
+  if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return
+  const lo = Math.min(from, to)
+  const hi = Math.max(from, to)
+  const t = now()
+  const span = list.slice(lo, hi + 1)
+  const item = list[from]
+  const rest = span.filter((b) => b.id !== item.id)
+  const seq = from < to ? [...rest.slice(0, to - lo), item, ...rest.slice(to - lo)] : [item, ...rest.slice(0, from - lo), ...rest.slice(from - lo)]
+  const before = lo > 0 ? list[lo - 1].position : list[0].position - POS_STEP
+  const after = hi + 1 < list.length ? list[hi + 1].position : list[list.length - 1].position + POS_STEP
+  const n = seq.length
+  const updates = seq.map((b, i) => ({
+    key: b.id,
+    changes: { position: before + ((after - before) * (i + 1)) / (n + 1), updatedAt: t },
+  }))
+  await db.blocks.bulkUpdate(updates)
   await touchExperiment(experimentId)
+}
+
+/** 整体重排（拖拽排序用）：优先用区间移动，保证不刷无关块的时间戳 */
+export async function reorderBlocks(experimentId: string, orderedIds: string[]) {
+  const list = await liveBlocks(experimentId)
+  const oldIds = list.map((b) => b.id)
+  if (oldIds.join() === orderedIds.join()) return
+  const from = oldIds.findIndex((id, i) => id !== orderedIds[i])
+  const to = oldIds.indexOf(orderedIds[from + 1] ?? orderedIds[orderedIds.length - 1]) // 目标 = 新序列里 from+1 项在旧序列的位置
+  await moveBlockRange(experimentId, from, Math.max(0, to === -1 ? from : to - (from < to ? 1 : 0)))
+  // 兜底：若仍未达成目标顺序（多次交叉移动），退化成整体重排但不盖时间戳
+  const after = await liveBlocks(experimentId)
+  if (after.map((b) => b.id).join() !== orderedIds.join()) {
+    await db.blocks.bulkUpdate(orderedIds.map((id, i) => ({ key: id, changes: { position: (i + 1) * POS_STEP } })))
+    await touchExperiment(experimentId)
+  }
 }
 
 export async function saveBlockData(id: string, data: unknown) {
@@ -234,7 +271,8 @@ export async function saveBlockData(id: string, data: unknown) {
 export async function deleteBlock(id: string) {
   const b = await db.blocks.get(id)
   if (!b) return
-  await db.blocks.update(id, { deletedAt: now() })
+  const t = now()
+  await db.blocks.update(id, { deletedAt: t, updatedAt: t })
   if (hasUsage(b.type)) await syncBlockUsage(id)
   await touchExperiment(b.experimentId)
 }
@@ -242,7 +280,8 @@ export async function deleteBlock(id: string) {
 export async function restoreBlock(id: string) {
   const b = await db.blocks.get(id)
   if (!b) return
-  await db.blocks.update(id, { deletedAt: null })
+  const t = now()
+  await db.blocks.update(id, { deletedAt: null, updatedAt: t })
   if (hasUsage(b.type)) await syncBlockUsage(id)
 }
 
@@ -271,10 +310,12 @@ export async function saveReagent(r: Partial<Reagent> & { name: string }, id?: s
 }
 
 export async function trashReagent(id: string) {
-  await db.reagents.update(id, { deletedAt: now() })
+  const t = now()
+  await db.reagents.update(id, { deletedAt: t, updatedAt: t })
 }
 export async function restoreReagent(id: string) {
-  await db.reagents.update(id, { deletedAt: null })
+  const t = now()
+  await db.reagents.update(id, { deletedAt: null, updatedAt: t })
 }
 export async function purgeReagent(id: string) {
   await db.transaction('rw', db.reagents, db.usages, async () => {
@@ -312,7 +353,7 @@ export async function syncBlockUsage(blockId: string) {
           await db.reagents.update(r.id, { stockQty: round(r.stockQty - deducted) })
         }
       }
-      await db.usages.add({ id: uid(), reagentId: r.id, experimentId: block.experimentId, blockId, itemId: it.itemId, amount: it.amount, unit: it.unit, deducted, createdAt: t })
+      await db.usages.put({ id: `${blockId}:${it.itemId}`, reagentId: r.id, experimentId: block.experimentId, blockId, itemId: it.itemId, amount: it.amount, unit: it.unit, deducted, createdAt: t })
     }
   })
 }
@@ -321,19 +362,27 @@ const round = (n: number) => Math.round(n * 1e6) / 1e6
 
 // ───────────────────────── 日程 ─────────────────────────
 
-export async function addSchedule(s: Omit<Schedule, 'id' | 'createdAt'>) {
+export async function addSchedule(s: Omit<Schedule, 'id' | 'createdAt' | 'updatedAt'>) {
   const id = uid()
-  await db.schedules.add({ ...s, id, createdAt: now() })
+  const t = now()
+  await db.schedules.add({ ...s, id, createdAt: t, updatedAt: t })
   return id
 }
 export async function updateSchedule(id: string, patch: Partial<Schedule>) {
-  await db.schedules.update(id, patch)
+  await db.schedules.update(id, { ...patch, updatedAt: now() })
 }
+/** 删除留墓碑：多设备同步时不至于在另一台设备上复活 */
 export async function deleteSchedule(id: string) {
-  await db.schedules.delete(id)
+  const t = now()
+  await db.schedules.update(id, { deletedAt: t, updatedAt: t })
 }
 
 // ───────────────────────── 模板 ─────────────────────────
+
+export async function deleteTemplate(id: string) {
+  const t = now()
+  await db.templates.update(id, { deletedAt: t, updatedAt: t })
+}
 
 export async function saveAsTemplate(experimentId: string, name: string, description = '') {
   const e = await db.experiments.get(experimentId)
@@ -342,6 +391,7 @@ export async function saveAsTemplate(experimentId: string, name: string, descrip
   const t: Template = {
     id: uid(),
     name: name.trim() || e.title,
+    updatedAt: now(),
     kind: e.kind,
     description,
     blocks: blocks.map((b) => ({ type: b.type, data: cloneBlockData(b.type, b.data) })),
@@ -384,7 +434,7 @@ export async function restoreSnapshotInPlace(snapshotId: string) {
   const t = now()
   await db.transaction('rw', db.blocks, db.experiments, async () => {
     const cur = await liveBlocks(s.experimentId)
-    await db.blocks.bulkUpdate(cur.map((b) => ({ key: b.id, changes: { deletedAt: t } })))
+    await db.blocks.bulkUpdate(cur.map((b) => ({ key: b.id, changes: { deletedAt: t, updatedAt: t } })))
     await db.blocks.bulkPut(s.payload.blocks.map((b) => ({ ...structuredClone(b), id: uid(), createdAt: t, updatedAt: t, deletedAt: null })))
     await db.experiments.update(s.experimentId, { title: s.payload.experiment.title, tags: s.payload.experiment.tags, updatedAt: t })
   })

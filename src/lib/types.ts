@@ -7,6 +7,7 @@ export interface Project {
   name: string
   color: string
   createdAt: number
+  updatedAt: number
   deletedAt?: number | null
 }
 
@@ -80,6 +81,8 @@ export interface Schedule {
   done: boolean
   experimentId: ID | null
   createdAt: number
+  updatedAt: number
+  deletedAt?: number | null
 }
 
 export interface TemplateBlock {
@@ -95,6 +98,8 @@ export interface Template {
   blocks: TemplateBlock[]
   builtin?: boolean
   createdAt: number
+  updatedAt?: number
+  deletedAt?: number | null
 }
 
 export interface Snapshot {

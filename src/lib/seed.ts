@@ -15,6 +15,7 @@ export function builtinTemplates(): Template[] {
       description: '只有一段文字，从零开始',
       builtin: true,
       createdAt: t,
+      updatedAt: 0,
       blocks: [{ type: 'text', data: { html: '<h2>目的</h2><p></p><h2>方法</h2><p></p><h2>结果</h2><p></p><h2>结论</h2><p></p>' } }],
     },
     {
@@ -24,6 +25,7 @@ export function builtinTemplates(): Template[] {
       description: '流程清单、泳道表、抗体与结果图',
       builtin: true,
       createdAt: t,
+      updatedAt: 0,
       blocks: [
         { type: 'text', data: { html: '<h2>目的</h2><p></p>' + SOP_NOTE } },
         {
@@ -58,6 +60,7 @@ export function builtinTemplates(): Template[] {
       description: '布板、Ct 值录入与 2^-ΔΔCt',
       builtin: true,
       createdAt: t,
+      updatedAt: 0,
       blocks: [
         { type: 'text', data: { html: '<h2>目的</h2><p></p>' } },
         { type: 'plate', data: { plateId: 'p96', title: 'qPCR 布板', wells: {}, groups: [] } },
@@ -73,6 +76,7 @@ export function builtinTemplates(): Template[] {
       description: '培养容器、传代代次与观察记录',
       builtin: true,
       createdAt: t,
+      updatedAt: 0,
       blocks: [
         { type: 'culture', data: { vessels: [newVessel('T25 培养瓶')] } },
         { type: 'protocol', data: { title: '传代', steps: [newStep('弃旧培养基，PBS 洗'), newStep('胰酶消化', '37 °C', 2), newStep('终止消化并吹打'), newStep('离心', '', 5), newStep('重悬、计数、接种')] } },
@@ -87,6 +91,7 @@ export function builtinTemplates(): Template[] {
       description: '布板、读数表与结论',
       builtin: true,
       createdAt: t,
+      updatedAt: 0,
       blocks: [
         { type: 'text', data: { html: '<h2>目的</h2><p></p>' } },
         { type: 'plate', data: { plateId: 'p96', title: '布板', wells: {}, groups: [] } },
@@ -104,7 +109,7 @@ export function ensureSeed() {
   seeded ??= (async () => {
     await db.templates.bulkPut(builtinTemplates())
     if ((await db.projects.count()) === 0 && (await db.experiments.count()) === 0) {
-      await db.projects.add({ id: 'default', name: '我的课题', color: 'teal', createdAt: Date.now() })
+      await db.projects.add({ id: 'default', name: '我的课题', color: 'teal', createdAt: Date.now(), updatedAt: Date.now() })
     }
   })()
   return seeded

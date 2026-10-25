@@ -28,9 +28,9 @@ export function TodayPage() {
   const exps = useExperiments()
   const projects = useProjects()
   const reagents = useReagents()
-  const schedules = useLiveQuery(async () => (await db.schedules.where('date').equals(today).toArray()).sort((a, b) => (a.time || '99').localeCompare(b.time || '99')), [today], [])
+  const schedules = useLiveQuery(async () => (await db.schedules.where('date').equals(today).toArray()).filter((x) => !x.deletedAt).sort((a, b) => (a.time || '99').localeCompare(b.time || '99')), [today], [])
   const upcoming = useLiveQuery(
-    async () => (await db.schedules.where('date').between(today, '9999', false, true).toArray()).filter((s) => !s.done).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5),
+    async () => (await db.schedules.where('date').between(today, '9999', false, true).toArray()).filter((s) => !s.done && !s.deletedAt).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 5),
     [today],
     [],
   )
