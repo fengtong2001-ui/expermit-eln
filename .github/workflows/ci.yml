@@ -16,7 +16,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      # 不用 npm ci：npm 11 为 Tailwind oxide 的 wasm32 可选依赖生成 lock 时
+      # 不写其 bundleDependencies（@emnapi/* 等）条目，Linux 上 npm ci 会报 Missing
+      - run: npm install
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
@@ -40,7 +42,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
