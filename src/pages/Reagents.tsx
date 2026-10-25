@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { useSearchParams } from 'react-router'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Minus, PackagePlus, Plus, Search, TestTubes, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -7,7 +7,7 @@ import { db } from '@/lib/db'
 import { reagentAlerts, useReagents } from '@/lib/hooks'
 import { emptyReagent, restoreReagent, saveReagent, trashReagent } from '@/lib/repo'
 import { COMMON_UNITS, formatQty } from '@/lib/units'
-import { cn, formatDate } from '@/lib/util'
+import { cn } from '@/lib/util'
 import { pushUndo, undoById } from '@/lib/undo'
 import type { Reagent } from '@/lib/types'
 import { PageHeader } from '@/components/Shell'
@@ -30,13 +30,6 @@ function AlertBadges({ r }: { r: Reagent }) {
 function ReagentDialog({ id, open, onClose }: { id: string | null; open: boolean; onClose: () => void }) {
   const existing = useLiveQuery(() => (id ? db.reagents.get(id) : undefined), [id])
   const [f, setF] = useState(emptyReagent())
-  const usage = useLiveQuery(async () => {
-    if (!id) return []
-    const us = await db.usages.where('reagentId').equals(id).reverse().sortBy('createdAt')
-    const exps = await db.experiments.bulkGet([...new Set(us.map((u) => u.experimentId))])
-    const m = new Map(exps.filter(Boolean).map((e) => [e!.id, e!]))
-    return us.map((u) => ({ u, e: m.get(u.experimentId) })).filter((x) => x.e && !x.e.deletedAt)
-  }, [id], [])
   const [adjust, setAdjust] = useState('')
 
   useEffect(() => {
@@ -155,31 +148,12 @@ function ReagentDialog({ id, open, onClose }: { id: string | null; open: boolean
               </Button>
             </div>
           )}
-          <p className="mt-2 text-[11px] text-slate-500">在实验里用「试剂消耗」或「抗体」块勾选已使用，会按用量自动扣减（同量纲单位自动换算，如 µL ↔ mL）。</p>
+          <p className="mt-2 text-[11px] text-slate-500">输入名称、货号或批号搜索；库存数量手动维护。</p>
         </div>
 
         <Field label="备注" className="sm:col-span-2">
           <textarea className="field" rows={2} value={f.note} onChange={(e) => set('note', e.target.value)} />
         </Field>
-
-        {id && usage.length > 0 && (
-          <div className="sm:col-span-2">
-            <p className="label">使用记录（{usage.length}）</p>
-            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
-              {usage.slice(0, 20).map(({ u, e }) => (
-                <li key={u.id} className="flex items-center gap-3 px-3 py-2 text-[13px]">
-                  <Link to={`/experiments/${e!.id}?block=${u.blockId}`} className="min-w-0 flex-1 truncate text-brand-700 hover:underline dark:text-brand-300" onClick={onClose}>
-                    {e!.title}
-                  </Link>
-                  <span className="text-slate-500 tabular-nums">
-                    {formatQty(u.amount)} {u.unit}
-                  </span>
-                  <span className="w-24 text-right text-xs text-slate-500">{formatDate(u.createdAt)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
       </form>
       <datalist id="reagent-cats">
         {CATEGORIES.map((c) => (
@@ -203,11 +177,6 @@ function ReagentDialog({ id, open, onClose }: { id: string | null; open: boolean
 export function ReagentsPage() {
   const [sp, setSp] = useSearchParams()
   const reagents = useReagents()
-  const usageCount = useLiveQuery(async () => {
-    const m = new Map<string, number>()
-    for (const u of await db.usages.toArray()) m.set(u.reagentId, (m.get(u.reagentId) ?? 0) + 1)
-    return m
-  }, [], new Map())
   const [q, setQ] = useState('')
   const [cat, setCat] = useState('all')
   const [onlyAlerts, setOnlyAlerts] = useState(false)
@@ -271,7 +240,7 @@ export function ReagentsPage() {
           <EmptyState
             icon={<TestTubes />}
             title="试剂库是空的"
-            hint="录入常用试剂和抗体后，实验里可以直接选用、自动扣库存，并能反查某个批号用在了哪些实验里。"
+            hint="录入常用试剂和抗体后，实验里可以直接选用；库存数量与到期、库存不足提醒在这里维护。"
             action={
               <Button variant="primary" onClick={() => setSp({ new: '1' })}>
                 <PackagePlus /> 添加第一种试剂
@@ -291,7 +260,6 @@ export function ReagentsPage() {
                   <th className="px-3 py-2.5 font-medium">有效期</th>
                   <th className="px-3 py-2.5 font-medium">保存</th>
                   <th className="px-3 py-2.5 text-right font-medium">库存</th>
-                  <th className="px-3 py-2.5 text-right font-medium">使用</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -311,7 +279,6 @@ export function ReagentsPage() {
                     <td className={cn('px-3 py-2.5 text-right font-medium tabular-nums', r.stockQty !== null && r.stockQty < 0 ? 'text-rose-600' : 'text-slate-700 dark:text-slate-200')}>
                       {r.stockQty !== null ? `${formatQty(r.stockQty)} ${r.stockUnit}` : <span className="font-normal text-slate-400">—</span>}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-slate-500 tabular-nums">{usageCount.get(r.id) ? `${usageCount.get(r.id)} 次` : ''}</td>
                   </tr>
                 ))}
               </tbody>

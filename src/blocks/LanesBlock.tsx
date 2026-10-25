@@ -80,14 +80,13 @@ export function LanesBlock({ data, onChange, readOnly }: BlockEditorProps<LanesD
                   }
                 }}
                 data-lane-input={i}
-                placeholder="样品"
                 aria-label={`泳道 ${i + 1} 样品`}
                 className="cell"
               />
               {!readOnly ? <RowDelete onClick={() => { pushUndo('删除泳道', () => set(structuredClone(data.lanes))); set(data.lanes.filter((x) => x.id !== l.id)) }} label="删除泳道" /> : <span />}
               <div className="col-span-2 col-start-2 flex gap-2 pb-1 sm:col-span-2 sm:col-start-3 sm:row-start-1 sm:pb-0">
-                <input value={l.load} readOnly={readOnly} onChange={(e) => update(l.id, { load: e.target.value })} placeholder="上样量" aria-label="上样量" className="cell w-[90px] shrink-0" />
-                <input value={l.treatment} readOnly={readOnly} onChange={(e) => update(l.id, { treatment: e.target.value })} placeholder="处理" aria-label="处理" className="cell" />
+                <input value={l.load} readOnly={readOnly} onChange={(e) => update(l.id, { load: e.target.value })} aria-label="上样量" className="cell w-[90px] shrink-0" />
+                <input value={l.treatment} readOnly={readOnly} onChange={(e) => update(l.id, { treatment: e.target.value })} aria-label="处理" className="cell" />
               </div>
             </div>
           ))}

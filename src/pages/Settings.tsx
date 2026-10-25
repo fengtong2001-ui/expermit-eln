@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { DatabaseBackup, Download, HardDrive, Import, Keyboard, Monitor, Moon, Sun, Upload } from 'lucide-react'
+import { CalendarClock, DatabaseBackup, Download, FolderOpen, HardDrive, Keyboard, Monitor, Moon, RefreshCw, Sun, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import changelogRaw from '../../CHANGELOG.md?raw'
 import { db } from '@/lib/db'
 import { downloadBackup, importAll } from '@/lib/exporter'
-import { importLegacy } from '@/lib/legacy'
 import { setTheme, useTheme } from '@/lib/theme'
 import { formatBytes, formatDateTime, modKey } from '@/lib/util'
+import { desktop, isDesktop, appVersion } from '@/lib/desktop'
+import { checkLatest, downloadAndInstall, getCheckFreq, isNewer, setCheckFreq, type CheckFreq } from '@/lib/updater'
 import { PageHeader } from '@/components/Shell'
 import { Button, Kbd, Segmented } from '@/components/ui'
 import { confirmDialog } from '@/components/confirm'
@@ -31,7 +33,6 @@ function Section({ icon, title, children, desc }: { icon: React.ReactNode; title
 export function SettingsPage() {
   const theme = useTheme()
   const backupInput = useRef<HTMLInputElement>(null)
-  const legacyInput = useRef<HTMLInputElement>(null)
   const [usage, setUsage] = useState<{ used: number; quota: number } | null>(null)
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const counts = useLiveQuery(async () => ({
@@ -63,16 +64,6 @@ export function SettingsPage() {
     }
   }
 
-  const importOld = async (f: File) => {
-    try {
-      const dump = JSON.parse(await f.text())
-      const r = await importLegacy(dump)
-      toast.success(`已导入 ${r.experiments} 个实验、${r.reagents} 种试剂、${r.schedules} 条日程。试剂消耗记录已导入但未勾选，避免重复扣库存。`, { duration: 10000 })
-    } catch {
-      toast.error('无法读取这个文件。请选择旧版 ExPermit 导出的 JSON 文件。')
-    }
-  }
-
   return (
     <div>
       <PageHeader title="设置与备份" />
@@ -99,6 +90,7 @@ export function SettingsPage() {
               {persisted && ' 已启用持久存储。'}
             </p>
           )}
+          {isDesktop && <DataDirRow />}
         </Section>
 
         <Section icon={<Cloud />} title="多设备同步（网络存储）" desc="通过 GitHub 私有仓库或 WebDAV 在电脑和手机之间自动同步。">
@@ -116,13 +108,6 @@ export function SettingsPage() {
             <span className="text-xs text-slate-500">{lastBackup ? `上次备份：${formatDateTime(lastBackup)}` : '还没有备份过'}</span>
           </div>
           <input ref={backupInput} type="file" accept=".zip,application/zip" hidden onChange={(e) => (e.target.files?.[0] && void restore(e.target.files[0]), (e.target.value = ''))} />
-        </Section>
-
-        <Section icon={<Import />} title="从旧版 ExPermit 导入" desc="导入旧版（网页 + 本地服务器那一版）的实验、孔板、试剂库与日程。导入的实验放在「从旧版导入」项目里，不影响现有数据。">
-          <Button onClick={() => legacyInput.current?.click()}>
-            <Import /> 选择旧版导出的 JSON
-          </Button>
-          <input ref={legacyInput} type="file" accept=".json,application/json" hidden onChange={(e) => (e.target.files?.[0] && void importOld(e.target.files[0]), (e.target.value = ''))} />
         </Section>
 
         <Section icon={theme === 'dark' ? <Moon /> : <Sun />} title="外观">
@@ -161,8 +146,154 @@ export function SettingsPage() {
           </dl>
         </Section>
 
+        <AboutSection />
+
         <p className="pt-2 text-center text-xs text-slate-500">ExPermit 实验记录本 · 本地优先 · 开源</p>
       </div>
+    </div>
+  )
+}
+
+/** 桌面版：数据存储位置（更改后自动重启并迁移） */
+function DataDirRow() {
+  const [dir, setDir] = useState<string | null>(null)
+  useEffect(() => {
+    void desktop?.getInfo().then((i) => setDir(i.dataDir))
+  }, [])
+  const change = async () => {
+    const ok = await confirmDialog({
+      title: '更改数据存储位置？',
+      body: '选择新位置后应用会自动重启，并把全部数据复制过去；原位置的数据保留不动。',
+      confirmText: '选择位置',
+    })
+    if (!ok) return
+    await desktop?.chooseDataDir()
+  }
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+      <span className="min-w-0 flex-1 truncate font-mono text-xs text-slate-500" title={dir ?? ''}>
+        {dir ?? '…'}
+      </span>
+      <Button size="sm" onClick={() => void change()}>
+        <FolderOpen /> 更改位置
+      </Button>
+    </div>
+  )
+}
+
+/** 关于与更新：版本号、更新日志（点开才看）、检查频率（桌面版） */
+function AboutSection() {
+  const [logOpen, setLogOpen] = useState(false)
+  const [freq, setFreqState] = useState<CheckFreq>(() => getCheckFreq())
+  const [checking, setChecking] = useState(false)
+
+  const checkNow = async () => {
+    setChecking(true)
+    const info = await checkLatest()
+    setChecking(false)
+    if (!info) {
+      toast.error('检查更新失败，请稍后再试')
+      return
+    }
+    if (!isNewer(info.version)) {
+      toast.success(`已是最新版本（${appVersion}）`)
+      return
+    }
+    toast(`新版本 ${info.version} 可用`, {
+      duration: 30000,
+      action: info.setupUrl
+        ? { label: '下载并安装', onClick: () => void downloadAndInstall(info.setupUrl!) }
+        : { label: '查看', onClick: () => void window.open('https://github.com/fengtong2001-ui/expermit-eln/releases/latest', '_blank') },
+    })
+  }
+
+  return (
+    <Section icon={<RefreshCw />} title="关于与更新">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] text-slate-600 dark:text-slate-300">
+        <span>
+          当前版本 <span className="font-semibold tabular-nums">{appVersion}</span>
+        </span>
+        <button onClick={() => setLogOpen((v) => !v)} className="cursor-pointer text-brand-700 hover:underline dark:text-brand-300">
+          更新日志
+        </button>
+        {isDesktop && (
+          <>
+            <Button size="sm" onClick={() => void checkNow()} disabled={checking}>
+              <RefreshCw className={checking ? 'animate-spin' : ''} /> {checking ? '检查中…' : '立即检查'}
+            </Button>
+            <div className="flex items-center gap-2">
+              <CalendarClock className="size-3.5 text-slate-400" />
+              <Segmented
+                value={freq}
+                onChange={(v) => {
+                  setCheckFreq(v as CheckFreq)
+                  setFreqState(v as CheckFreq)
+                }}
+                options={[
+                  { value: 'always', label: '每次启动检查' },
+                  { value: 'weekly', label: '7 天检查一次' },
+                ]}
+              />
+            </div>
+          </>
+        )}
+      </div>
+      {logOpen && <ChangelogView raw={changelogRaw} />}
+    </Section>
+  )
+}
+
+/** 条目内的 **加粗** 与 `代码` 标记 */
+function richText(s: string, keyBase: string) {
+  const parts: React.ReactNode[] = []
+  const re = /\*\*(.+?)\*\*|`(.+?)`/g
+  let last = 0
+  let m: RegExpExecArray | null
+  let k = 0
+  while ((m = re.exec(s))) {
+    if (m.index > last) parts.push(s.slice(last, m.index))
+    if (m[1]) parts.push(<strong key={`${keyBase}-${k++}`} className="font-semibold text-slate-800 dark:text-slate-100">{m[1]}</strong>)
+    else parts.push(<code key={`${keyBase}-${k++}`} className="rounded bg-slate-200/70 px-1 font-mono text-[12px] dark:bg-slate-700/70">{m[2]}</code>)
+    last = re.lastIndex
+  }
+  if (last < s.length) parts.push(s.slice(last))
+  return parts
+}
+
+/** 极简渲染 CHANGELOG.md：## 版本 / ### 分节 / - 条目 */
+function ChangelogView({ raw }: { raw: string }) {
+  const versions: { title: string; sections: { name: string; items: string[] }[] }[] = []
+  let v: (typeof versions)[number] | null = null
+  let s: NonNullable<(typeof versions)[number]['sections'][number]> | null = null
+  for (const line of raw.split('\n')) {
+    if (line.startsWith('## ')) {
+      v = { title: line.slice(3).trim(), sections: [] }
+      versions.push(v)
+      s = null
+    } else if (line.startsWith('### ') && v) {
+      s = { name: line.slice(4).trim(), items: [] }
+      v.sections.push(s)
+    } else if (line.startsWith('- ') && v && s) {
+      s.items.push(line.slice(2).trim())
+    }
+  }
+  return (
+    <div className="mt-3 max-h-96 space-y-4 overflow-y-auto rounded-xl bg-slate-50 p-4 text-[13px] dark:bg-slate-800/50">
+      {versions.map((ver) => (
+        <div key={ver.title}>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{ver.title}</h3>
+          {ver.sections.map((sec) => (
+            <div key={sec.name} className="mt-2">
+              <h4 className="text-xs font-medium text-slate-500">{sec.name}</h4>
+              <ul className="mt-1 list-disc space-y-1 pl-5 text-slate-600 dark:text-slate-300">
+                {sec.items.map((it, i) => (
+                  <li key={i}>{richText(it, `${ver.title}-${sec.name}-${i}`)}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   )
 }

@@ -1,15 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from './db'
 import * as repo from './repo'
-import { newAntibody, newReagentLine } from '@/blocks/defs'
 
 beforeEach(async () => {
   await Promise.all(db.tables.map((t) => t.clear()))
 })
-
-async function mkReagent(qty: number | null, unit: string) {
-  return repo.saveReagent({ name: 'PBS', stockQty: qty, stockUnit: unit })
-}
 
 describe('实验编号', () => {
   it('同日同类型递增', async () => {
@@ -53,59 +48,6 @@ describe('块', () => {
     expect((list[0].data as { html: string }).html).toBe('a')
     expect((list[list.length - 1].data as { html: string }).html).toBe('z')
     expect((list[60].data as { html: string }).html).toBe('m59')
-  })
-})
-
-describe('库存扣减', () => {
-  it('勾选后扣减，修改用量重新结算，删除块归还', async () => {
-    const rid = await mkReagent(100, 'mL')
-    const e = await repo.createExperiment({ title: 'x', kind: 'general', projectId: null })
-    const line = { ...newReagentLine(), reagentId: rid, name: 'PBS', amount: 500, unit: 'µL', used: true }
-    const b = await repo.insertBlock(e.id, 'reagents', { items: [line] }, null)
-    await repo.saveBlockData(b.id, { items: [line] })
-    expect((await db.reagents.get(rid))!.stockQty).toBe(99.5)
-    // 重复保存同样内容：幂等
-    await repo.saveBlockData(b.id, { items: [line] })
-    expect((await db.reagents.get(rid))!.stockQty).toBe(99.5)
-    await repo.saveBlockData(b.id, { items: [{ ...line, amount: 2, unit: 'mL' }] })
-    expect((await db.reagents.get(rid))!.stockQty).toBe(98)
-    await repo.deleteBlock(b.id)
-    expect((await db.reagents.get(rid))!.stockQty).toBe(100)
-    await repo.restoreBlock(b.id)
-    expect((await db.reagents.get(rid))!.stockQty).toBe(98)
-  })
-
-  it('未勾选不扣；单位不可换算时只记录不扣', async () => {
-    const rid = await mkReagent(3, '瓶')
-    const e = await repo.createExperiment({ title: 'x', kind: 'general', projectId: null })
-    const b = await repo.insertBlock(e.id, 'reagents', { items: [] }, null)
-    const line = { ...newReagentLine(), reagentId: rid, amount: 5, unit: 'mL', used: false }
-    await repo.saveBlockData(b.id, { items: [line] })
-    expect((await db.reagents.get(rid))!.stockQty).toBe(3)
-    await repo.saveBlockData(b.id, { items: [{ ...line, used: true }] })
-    expect((await db.reagents.get(rid))!.stockQty).toBe(3)
-    expect(await db.usages.where('reagentId').equals(rid).count()).toBe(1)
-  })
-
-  it('抗体按稀释比计算原液用量并扣减', async () => {
-    const rid = await mkReagent(100, 'µL')
-    const e = await repo.createExperiment({ title: 'x', kind: 'wb', projectId: null })
-    const ab = { ...newAntibody('一抗'), reagentId: rid, dilution: 1000, volumeMl: 10, used: true }
-    const b = await repo.insertBlock(e.id, 'antibodies', { items: [ab] }, null)
-    await repo.saveBlockData(b.id, { items: [ab] })
-    expect((await db.reagents.get(rid))!.stockQty).toBe(90)
-  })
-
-  it('复制实验不复制扣减勾选', async () => {
-    const rid = await mkReagent(10, 'mL')
-    const e = await repo.createExperiment({ title: 'x', kind: 'general', projectId: null })
-    const line = { ...newReagentLine(), reagentId: rid, amount: 1, unit: 'mL', used: true }
-    const b = await repo.insertBlock(e.id, 'reagents', { items: [line] }, null)
-    await repo.saveBlockData(b.id, { items: [line] })
-    const copy = await repo.duplicateExperiment(e.id)
-    const [cb] = await repo.liveBlocks(copy.id)
-    expect((cb.data as { items: { used: boolean }[] }).items[0].used).toBe(false)
-    expect((await db.reagents.get(rid))!.stockQty).toBe(9)
   })
 })
 

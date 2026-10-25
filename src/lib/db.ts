@@ -9,7 +9,6 @@ import type {
   Snapshot,
   StoredFile,
   Template,
-  Usage,
 } from './types'
 
 export class ElnDB extends Dexie {
@@ -17,7 +16,6 @@ export class ElnDB extends Dexie {
   experiments!: EntityTable<Experiment, 'id'>
   blocks!: EntityTable<Block, 'id'>
   reagents!: EntityTable<Reagent, 'id'>
-  usages!: EntityTable<Usage, 'id'>
   schedules!: EntityTable<Schedule, 'id'>
   templates!: EntityTable<Template, 'id'>
   snapshots!: EntityTable<Snapshot, 'id'>
@@ -38,6 +36,18 @@ export class ElnDB extends Dexie {
       files: 'id, createdAt',
       audit: 'id, experimentId, at',
     })
+    // v2：去掉 usages 表（试剂不再自动扣库存），升级时 Dexie 自动删除旧表
+    this.version(2).stores({
+      projects: 'id, name, createdAt',
+      experiments: 'id, code, projectId, status, kind, updatedAt, plannedDate, *tags',
+      blocks: 'id, experimentId, [experimentId+position], type, updatedAt',
+      reagents: 'id, name, category, expiry, updatedAt',
+      schedules: 'id, date, experimentId',
+      templates: 'id, name, kind',
+      snapshots: 'id, experimentId, createdAt',
+      files: 'id, createdAt',
+      audit: 'id, experimentId, at',
+    })
   }
 }
 
@@ -48,7 +58,6 @@ export const TABLES = [
   'experiments',
   'blocks',
   'reagents',
-  'usages',
   'schedules',
   'templates',
   'snapshots',

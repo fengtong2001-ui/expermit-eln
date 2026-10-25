@@ -92,13 +92,13 @@ export function QpcrBlock({ data, onChange, readOnly }: BlockEditorProps<QpcrDat
               {data.rows.map((r) => (
                 <tr key={r.id} className="group/row">
                   <td className="px-1 py-0.5 pl-2">
-                    <input className="cell" value={r.sample} readOnly={readOnly} onChange={(e) => update(r.id, { sample: e.target.value })} placeholder="样品" aria-label="样品" />
+                    <input className="cell" value={r.sample} readOnly={readOnly} onChange={(e) => update(r.id, { sample: e.target.value })} aria-label="样品" />
                   </td>
                   <td className="px-1 py-0.5">
-                    <input className="cell" value={r.group} readOnly={readOnly} onChange={(e) => update(r.id, { group: e.target.value })} placeholder="组别" aria-label="组别" list="qpcr-groups" />
+                    <input className="cell" value={r.group} readOnly={readOnly} onChange={(e) => update(r.id, { group: e.target.value })} aria-label="组别" list="qpcr-groups" />
                   </td>
                   <td className="px-1 py-0.5">
-                    <input className="cell" value={r.target} readOnly={readOnly} onChange={(e) => update(r.id, { target: e.target.value })} placeholder="基因" aria-label="基因" list="qpcr-targets" />
+                    <input className="cell" value={r.target} readOnly={readOnly} onChange={(e) => update(r.id, { target: e.target.value })} aria-label="基因" list="qpcr-targets" />
                   </td>
                   {Array.from({ length: n }, (_, i) => (
                     <td key={i} className="px-1 py-0.5">

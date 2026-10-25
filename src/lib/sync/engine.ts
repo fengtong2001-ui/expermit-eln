@@ -57,12 +57,11 @@ function refreshIdle(dirty = false) {
 // ───────── 导出 / 导入 ─────────
 
 export async function exportDoc(device: string, now = Date.now()): Promise<SyncDoc> {
-  const [projects, experiments, blocks, reagents, usages, schedules, templates, snapshots, audit, files] = await Promise.all([
+  const [projects, experiments, blocks, reagents, schedules, templates, snapshots, audit, files] = await Promise.all([
     db.projects.toArray(),
     db.experiments.toArray(),
     db.blocks.toArray(),
     db.reagents.toArray(),
-    db.usages.toArray(),
     db.schedules.toArray(),
     db.templates.toArray(),
     db.snapshots.toArray(),
@@ -79,7 +78,6 @@ export async function exportDoc(device: string, now = Date.now()): Promise<SyncD
       experiments: pruneTombstones(experiments, now, TRASH_DAYS, stats),
       blocks: pruneTombstones(blocks, now, TRASH_DAYS, stats),
       reagents: pruneTombstones(reagents, now, TRASH_DAYS, stats),
-      usages,
       schedules: pruneTombstones(schedules, now, TRASH_DAYS, stats),
       templates: pruneTombstones(templates, now, TRASH_DAYS, stats),
       snapshots,
@@ -96,7 +94,6 @@ async function applyDoc(doc: SyncDoc) {
     await db.experiments.bulkPut(doc.tables.experiments)
     await db.blocks.bulkPut(doc.tables.blocks)
     await db.reagents.bulkPut(doc.tables.reagents)
-    await db.usages.bulkPut(doc.tables.usages)
     await db.schedules.bulkPut(doc.tables.schedules)
     await db.templates.bulkPut(doc.tables.templates)
     await db.snapshots.bulkPut(doc.tables.snapshots)

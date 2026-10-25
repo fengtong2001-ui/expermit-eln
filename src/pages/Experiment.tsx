@@ -178,7 +178,7 @@ export function ExperimentPage() {
   const duplicate = async () => {
     const copy = await repo.duplicateExperiment(exp.id)
     navigate(`/experiments/${copy.id}`)
-    toast.success('已复制。步骤勾选、试剂扣减和图片没有带过来。')
+    toast.success('已复制。步骤勾选和图片没有带过来。')
   }
 
   return (

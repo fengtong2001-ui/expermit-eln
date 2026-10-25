@@ -2,9 +2,10 @@
 // 与 native/mac/main.swift 同契约：--sync '<json>' / --selftest / --www <path>
 // 数据（IndexedDB）存在应用自己的 userData 目录，不上传；同步功能由网页自己完成。
 'use strict'
-const { app, protocol, BrowserWindow, shell, net, Menu } = require('electron')
+const { app, protocol, BrowserWindow, shell, net, Menu, ipcMain, dialog } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
+const { spawn } = require('node:child_process')
 const { pathToFileURL } = require('node:url')
 
 // app:// 需在 ready 前注册为 standard+secure，localStorage / IndexedDB / fetch 才可用
@@ -30,6 +31,67 @@ const wwwArg = argValue('--www')
 
 let win = null
 
+// —— 数据存储位置：marker（写在 userData 之外，固定可达）指向自定义目录 ——
+// 启动时若自定义目录尚无数据，先把默认 userData 复制过去，再切换；失败则回落默认位置。
+const dataMarker = () => path.join(app.getPath('appData'), 'expermit-data-location.json')
+function applyCustomDataDir() {
+  try {
+    if (!fs.existsSync(dataMarker())) return
+    const { dir } = JSON.parse(fs.readFileSync(dataMarker(), 'utf8'))
+    if (!dir || typeof dir !== 'string') return
+    const target = path.resolve(dir)
+    const def = app.getPath('userData')
+    if (target === path.resolve(def) || !fs.existsSync(path.dirname(target))) return
+    if (!fs.existsSync(target)) fs.cpSync(def, target, { recursive: true })
+    app.setPath('userData', target)
+  } catch {
+    /* marker 损坏则继续用默认位置 */
+  }
+}
+
+function registerIpc() {
+  ipcMain.handle('app:info', () => ({ version: app.getVersion(), dataDir: app.getPath('userData') }))
+
+  // 下载新版本安装包（只信 GitHub 域名），流式落盘并回报进度
+  ipcMain.handle('update:download', async (event, url) => {
+    if (typeof url !== 'string' || !/^https:\/\/(github\.com|objects\.githubusercontent\.com|release-assets\.githubusercontent\.com)\//.test(url)) throw new Error('bad url')
+    const res = await net.fetch(url, { redirect: 'follow' })
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
+    const total = Number(res.headers.get('content-length')) || 0
+    const file = path.join(app.getPath('temp'), `ExPermit-Setup-${Date.now()}.exe`)
+    const out = fs.createWriteStream(file)
+    const reader = res.body.getReader()
+    let loaded = 0
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      out.write(Buffer.from(value))
+      loaded += value.length
+      if (total) event.sender.send('update:progress', Math.min(100, Math.round((loaded / total) * 100)))
+    }
+    await new Promise((resolve, reject) => out.end((err) => (err ? reject(err) : resolve())))
+    return file
+  })
+
+  // 静默运行安装包升级（仅允许我们下载到 temp 的文件），旧数据不受影响
+  ipcMain.handle('update:install', (_e, exePath) => {
+    if (typeof exePath !== 'string' || !exePath.startsWith(app.getPath('temp'))) throw new Error('bad path')
+    spawn(exePath, ['/S'], { detached: true, stdio: 'ignore' }).unref()
+    setTimeout(() => app.quit(), 300)
+  })
+
+  // 更改数据存储位置：选目录 → 写 marker → 重启（启动时完成数据迁移）
+  ipcMain.handle('data:choose', async () => {
+    const r = await dialog.showOpenDialog(win, { properties: ['openDirectory'], title: '选择数据存储位置' })
+    if (r.canceled || !r.filePaths[0]) return null
+    const dir = r.filePaths[0]
+    await fs.promises.writeFile(dataMarker(), JSON.stringify({ dir }, null, 2), 'utf8')
+    app.relaunch()
+    app.exit(0)
+    return dir
+  })
+}
+
 function resourceRoot() {
   if (wwwArg) return path.resolve(wwwArg)
   // 打包后 dist 经 extraResources 放在 resources/www；开发时直接用项目 dist
@@ -39,6 +101,7 @@ function resourceRoot() {
 
 function startApp() {
   const root = resourceRoot()
+  registerIpc()
 
   // 把本地 www/ 目录挂到 app://local/，防目录穿越
   protocol.handle('app', async (request) => {
@@ -128,7 +191,8 @@ function startApp() {
 }
 
 if (selftest) {
-  // 自检独立跑，不与常驻实例抢锁
+  // 自检独立跑，不与常驻实例抢锁；userData 也用一次性目录，避免与已安装实例的数据目录锁冲突
+  app.setPath('userData', path.join(app.getPath('temp'), `expermit-selftest-${Date.now()}`))
   app.whenReady().then(startApp)
 } else {
   const gotLock = app.requestSingleInstanceLock()
@@ -138,6 +202,7 @@ if (selftest) {
     app.on('second-instance', () => {
       if (win) { if (win.isMinimized()) win.restore(); win.show(); win.focus() }
     })
+    applyCustomDataDir()
     app.whenReady().then(startApp)
   }
 }

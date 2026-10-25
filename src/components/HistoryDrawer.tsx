@@ -31,13 +31,7 @@ export function HistoryDrawer({ experimentId, open, onOpenChange }: { experiment
   const restoreInPlace = async (s: Snapshot) => {
     const ok = await confirmDialog({
       title: '用这个版本替换当前内容？',
-      body: (
-        <>
-          当前内容会先自动保存为一个新版本，之后仍可从历史里找回。
-          <br />
-          试剂扣减会按恢复后的内容重新结算。
-        </>
-      ),
+      body: <>当前内容会先自动保存为一个新版本，之后仍可从历史里找回。</>,
       confirmText: '替换当前内容',
     })
     if (!ok) return

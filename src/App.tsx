@@ -12,6 +12,7 @@ import { ensureSeed } from './lib/seed'
 import { startAutoSync } from './lib/sync/engine'
 import { purgeExpiredTrash } from './lib/repo'
 import { useTheme } from './lib/theme'
+import { startupUpdateCheck } from './lib/updater'
 
 const ExperimentPage = lazy(() => import('./pages/Experiment').then((m) => ({ default: m.ExperimentPage })))
 const ReagentsPage = lazy(() => import('./pages/Reagents').then((m) => ({ default: m.ReagentsPage })))
@@ -61,6 +62,9 @@ export default function App() {
     void purgeExpiredTrash()
     void navigator.storage?.persist?.()
     startAutoSync()
+    // 桌面版：按设置的频率在启动 5 秒后后台检查新版本
+    const t = setTimeout(() => void startupUpdateCheck(), 5000)
+    return () => clearTimeout(t)
   }, [])
   return (
     <TooltipProvider>

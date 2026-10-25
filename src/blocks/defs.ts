@@ -23,8 +23,6 @@ export interface CultureData { vessels: Vessel[] }
 
 export type BlockType = 'text' | 'files' | 'table' | 'plate' | 'reagents' | 'protocol' | 'lanes' | 'antibodies' | 'qpcr' | 'culture'
 
-export interface UsageLine { itemId: string; reagentId: string; amount: number; unit: string }
-
 export interface BlockDef<T = any> {
   type: BlockType
   label: string
@@ -36,8 +34,6 @@ export interface BlockDef<T = any> {
   clone: (d: T) => T
   /** 供搜索的纯文本 */
   text: (d: T) => string
-  /** 会从库存扣减的条目 */
-  usages?: (d: T) => UsageLine[]
 }
 
 const stripHtml = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim()
@@ -104,16 +100,12 @@ export const DEFS: Record<BlockType, BlockDef> = {
   reagents: {
     type: 'reagents',
     label: '试剂消耗',
-    description: '从试剂库选择，勾选后自动扣库存',
+    description: '从试剂库选择试剂，记录本实验的用量',
     keywords: 'shiji reagent stock 试剂 库存 用量 消耗',
     group: '试剂与耗材',
     create: (): ReagentsData => ({ items: [newReagentLine()] }),
     clone: (d: ReagentsData) => ({ items: d.items.map((i) => ({ ...i, id: uid(), used: false })) }),
     text: (d: ReagentsData) => d.items.map((i) => join(i.name, i.note)).join(' '),
-    usages: (d: ReagentsData) =>
-      d.items
-        .filter((i) => i.used && i.reagentId && i.amount && i.amount > 0)
-        .map((i) => ({ itemId: i.id, reagentId: i.reagentId!, amount: i.amount!, unit: i.unit })),
   },
   protocol: {
     type: 'protocol',
@@ -138,16 +130,12 @@ export const DEFS: Record<BlockType, BlockDef> = {
   antibodies: {
     type: 'antibodies',
     label: '抗体',
-    description: '稀释比例自动算用量，可扣库存',
+    description: '稀释比例自动算原液用量',
     keywords: 'kangti antibody 一抗 二抗 稀释 wb',
     group: 'Western Blot',
     create: (): AntibodiesData => ({ items: [newAntibody('一抗'), newAntibody('二抗')] }),
     clone: (d: AntibodiesData) => ({ items: d.items.map((i) => ({ ...i, id: uid(), used: false })) }),
     text: (d: AntibodiesData) => d.items.map((i) => join(i.kind, i.name, i.host, i.dilution && `1:${i.dilution}`, i.note)).join(' '),
-    usages: (d: AntibodiesData) =>
-      d.items
-        .filter((i) => i.used && i.reagentId && i.dilution && i.dilution > 0 && i.volumeMl && i.volumeMl > 0)
-        .map((i) => ({ itemId: i.id, reagentId: i.reagentId!, amount: antibodyMicroliters(i)!, unit: 'µL' })),
   },
   qpcr: {
     type: 'qpcr',
@@ -192,13 +180,5 @@ export function blockText(type: string, data: unknown) {
     return defOf(type)?.text(data) ?? ''
   } catch {
     return ''
-  }
-}
-
-export function blockUsages(type: string, data: unknown): UsageLine[] {
-  try {
-    return defOf(type)?.usages?.(data) ?? []
-  } catch {
-    return []
   }
 }

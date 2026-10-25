@@ -1,7 +1,7 @@
 // 行级合并：同一行取 updatedAt 新的一方；删除是墓碑（deletedAt + updatedAt），
 // 墓碑比对方的修改时间新就仍然删除。超过保留期的墓碑在导出/合并时都丢弃，
 // 这样两边最终都会把彻底删除的东西清掉。
-import type { AuditEntry, Block, Experiment, Project, Reagent, Schedule, Snapshot, Template, Usage } from '../types'
+import type { AuditEntry, Block, Experiment, Project, Reagent, Schedule, Snapshot, Template } from '../types'
 
 export interface SyncDoc {
   v: 1
@@ -12,7 +12,6 @@ export interface SyncDoc {
     experiments: Experiment[]
     blocks: Block[]
     reagents: Reagent[]
-    usages: Usage[]
     schedules: Schedule[]
     templates: Template[]
     snapshots: Snapshot[]
@@ -76,9 +75,6 @@ function sortKeys(v: unknown): unknown {
   return v
 }
 
-/** usages 的稳定主键：同一块同一行试剂在两台设备上算同一条 */
-export const usageKey = (u: Usage) => `${u.blockId}:${u.itemId}`
-
 export function pruneTombstones<T extends { deletedAt?: number | null }>(rows: T[], now: number, days: number, stats: MergeStats): T[] {
   const cutoff = now - days * 86400000
   const kept = rows.filter((r) => !r.deletedAt || r.deletedAt > cutoff)
@@ -93,7 +89,6 @@ export function mergeDoc(local: SyncDoc, remote: SyncDoc, opts: { now: number; t
     experiments: mergeById(local.tables.experiments, remote.tables.experiments, stats),
     blocks: mergeById(local.tables.blocks, remote.tables.blocks, stats),
     reagents: mergeById(local.tables.reagents, remote.tables.reagents, stats),
-    usages: mergeById(local.tables.usages, remote.tables.usages, stats, usageKey),
     schedules: mergeById(local.tables.schedules, remote.tables.schedules, stats),
     templates: mergeById(local.tables.templates, remote.tables.templates, stats),
     // 快照与审计只增不改，并集即可

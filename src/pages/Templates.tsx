@@ -95,7 +95,7 @@ export function TemplatesPage() {
           <h2 className="mb-3 text-sm font-semibold">我的模板</h2>
           {mine.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-              <EmptyState icon={<LayoutTemplate />} title="还没有自己的模板" hint="在任意实验右上角「⋯ → 存为模板」，就能把这套结构复用到以后的实验里。步骤勾选、试剂扣减、图片不会带入模板。" />
+              <EmptyState icon={<LayoutTemplate />} title="还没有自己的模板" hint="在任意实验右上角「⋯ → 存为模板」，就能把这套结构复用到以后的实验里。步骤勾选和图片不会带入模板。" />
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

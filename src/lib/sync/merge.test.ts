@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from '../db'
 import * as repo from '../repo'
-import { mergeById, mergeDoc, pruneTombstones, usageKey } from './merge'
+import { mergeById, mergeDoc, pruneTombstones } from './merge'
 import { exportDoc } from './engine'
-import { newReagentLine } from '@/blocks/defs'
 import type { Block } from '../types'
 
 type AnyRow = { id: string; updatedAt?: number; deletedAt?: number | null; [k: string]: unknown }
@@ -43,13 +42,6 @@ describe('行级合并', () => {
     expect(kept.map((x) => x.id)).toEqual(['b', 'c'])
     expect(stats.droppedTombstones).toBe(1)
   })
-
-  it('usages 用 blockId:itemId 做键，两台设备不会重复', () => {
-    const stats = { pulled: 0, pushedCandidates: 0, conflictsRemoteWon: 0, droppedTombstones: 0 }
-    const mk = (id: string) => ({ id, blockId: 'b1', itemId: 'i1', reagentId: 'r', experimentId: 'e', amount: 1, unit: 'mL', deducted: 1, createdAt: 1 })
-    const merged = mergeById([mk('随机A')], [mk('b1:i1')], stats, usageKey as (u: ReturnType<typeof mk>) => string)
-    expect(merged).toHaveLength(1)
-  })
 })
 
 describe('重排不刷无关块时间戳', () => {
@@ -78,17 +70,6 @@ describe('重排不刷无关块时间戳', () => {
 })
 
 describe('同步导出', () => {
-  it('usage id 稳定、重复保存幂等', async () => {
-    const rid = await repo.saveReagent({ name: 'PBS', stockQty: 100, stockUnit: 'mL' })
-    const e = await repo.createExperiment({ title: 'x', kind: 'general', projectId: null })
-    const line = { ...newReagentLine(), reagentId: rid, name: 'PBS', amount: 1, unit: 'mL', used: true }
-    const b = await repo.insertBlock(e.id, 'reagents', { items: [line] }, null)
-    await repo.saveBlockData(b.id, { items: [line] })
-    await repo.saveBlockData(b.id, { items: [line] })
-    expect(await db.usages.count()).toBe(1)
-    expect((await db.usages.toArray())[0].id).toBe(`${b.id}:${line.id}`)
-  })
-
   it('导出 → 空库合并 → 数据完整（换新设备场景）', async () => {
     await repo.saveReagent({ name: 'FBS', stockQty: 2, stockUnit: '瓶' })
     const e = await repo.createExperiment({ title: '换机', kind: 'wb', projectId: null })

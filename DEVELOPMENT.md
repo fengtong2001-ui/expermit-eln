@@ -19,15 +19,17 @@ toast('…', { action: { label: '撤销', onClick: () => undoById(uid) } })  // 
 
 ## 2. 输入框样式
 
-三个层级，新增输入框对号入座：
+四个层级，新增输入框对号入座：
 
 | 场景 | 类 | 说明 |
 |---|---|---|
 | 表单 | `field` | 常显边框，浅/深双色齐全（`src/index.css`） |
 | 表格单元格 | `cell` | 常显浅边框（slate-200 / dark:slate-700），hover 加深，focus 品牌色 |
+| 清单式（步骤/行内长列表） | 参照 `ProtocolBlock` 的 `bare` | 无框、行 hover 微亮、focus 轻背景提示位置；列多时用 `<table>` + thead |
 | 行内编辑（日程条目等） | 参照 `Schedule.tsx` | `rounded-md border … hover:border-slate-300 focus:border-brand-500 dark:border-slate-700` |
 
-- **每个可输入框必须有持续可见的边框**——不允许 `border-transparent` 起步、hover 才出现的「隐形输入框」。标题类大字输入（实验标题、块标题）是唯一例外。
+- **每个可输入框必须「看得见能输入」**：要么自身有持续可见的边框，要么有轻背景/列头提示位置。标题类大字输入（实验标题、块标题）是唯一例外。
+- **表格类块（步骤、泳道、试剂、抗体、qPCR…）：每列用途写在列头（thead 或列头行），格内输入一律不留 placeholder。**
 - **禁止在带 `field`/`cell` 的输入框上追加写死的 `bg-white`、`text-slate-900` 等单色类**：utilities 层会覆盖组件层（`@layer components`）里的 `dark:` 配色，深色模式下变成白底白字。需要定制时必须同时给 `dark:` 变体。
 - 深色模式由 `<html>.dark` class 切换（`src/lib/theme.ts`），`.dark { color-scheme: dark }` 让日期选择器等原生控件自动变深。新 UI 必须浅深双色都写。
 
@@ -43,7 +45,19 @@ toast('…', { action: { label: '撤销', onClick: () => undoById(uid) } })  // 
 - 日程条目的完成态 = `schedule.done` **或** 关联实验 `status` 为 done/archived，统一走 `src/lib/scheduleDone.ts` 的 `schedDone` / `toggleScheduleDone`。勾选关联了实验的日程会联动完成/重新打开实验。**任何页面不许绕过它直接 `updateSchedule({ done })`**，否则日程页与实验列表的完成态会再次分裂。
 - 同类规则：一个实体的同一状态只能有一个权威来源（experiment.status 是实验完成态的唯一权威；schedule.done 只对手工日程负责）。
 
-## 5. 其他约定
+## 5. 桌面版（Electron）
+
+- 网页与壳的唯一通道是 preload 注入的 `window.expermitDesktop`（类型见 `src/lib/desktop.ts`：版本信息、下载/安装更新、更改数据目录、下载进度订阅）；网页版下为 `undefined`，所有桌面专属 UI 必须先判 `isDesktop`。
+- 更新流程统一走 `src/lib/updater.ts`（GitHub Releases 为版本源）；发版 = 升 package.json version + CHANGELOG 追加 + 打 tag + 建 Release 并上传 `ExPermit-Setup-<版本>.exe`。
+- 数据存储位置：marker 文件 `%APPDATA%/expermit-data-location.json` 指向自定义目录，壳启动时（ready 前）读取并迁移/切换 userData（`electron/main.cjs` 的 `applyCustomDataDir`）。
+- 壳的完整契约（app://local、--selftest、--sync）见 `electron/main.cjs` 头注与 README。
+
+## 6. 已移除的功能（不要复活）
+
+- 从旧版 ExPermit 导入（0.1.2 删，legacy.ts 已移除）。
+- 试剂库存自动扣减（0.1.2 删）：usages 表已从 Dexie schema 移除（version 2）且不再参与多设备同步；库存数量保留在试剂库中手动维护。旧设备同步数据里的 usages 记录会被自动忽略。
+
+## 7. 其他约定
 
 - 块编辑器数据流：`BlockFrame` 持有本地草稿 + `useDebouncedSave` 去抖保存，编辑器内一切修改走 `onChange`（不要直写 db）。去抖实现保证「保存中新输入不丢」，撤销回调延迟执行也能正确落库。
 - 新内容块：在 `src/blocks/` 建 `XxxBlock.tsx` + `defs.ts` 注册 + `registry.tsx` 注册图标；行删除必须带 `pushUndo`（见 §1）。

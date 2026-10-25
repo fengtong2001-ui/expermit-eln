@@ -51,7 +51,7 @@ export function CultureBlock({ data, onChange, readOnly }: BlockEditorProps<Cult
                 </label>
                 <label>
                   <span className="label !mb-0.5 px-2">细胞</span>
-                  <input className="cell" value={v.cellLine} readOnly={readOnly} onChange={(e) => update(v.id, { cellLine: e.target.value })} placeholder="细胞系" />
+                  <input className="cell" value={v.cellLine} readOnly={readOnly} onChange={(e) => update(v.id, { cellLine: e.target.value })} />
                 </label>
                 <label>
                   <span className="label !mb-0.5 px-2">代次</span>
@@ -68,15 +68,15 @@ export function CultureBlock({ data, onChange, readOnly }: BlockEditorProps<Cult
                 </label>
                 <label>
                   <span className="label !mb-0.5 px-2">接种密度</span>
-                  <input className="cell" value={v.density} readOnly={readOnly} onChange={(e) => update(v.id, { density: e.target.value })} placeholder="密度" />
+                  <input className="cell" value={v.density} readOnly={readOnly} onChange={(e) => update(v.id, { density: e.target.value })} />
                 </label>
                 <label>
                   <span className="label !mb-0.5 px-2">汇合度</span>
-                  <input className="cell" value={v.confluence} readOnly={readOnly} onChange={(e) => update(v.id, { confluence: e.target.value })} placeholder="占比" />
+                  <input className="cell" value={v.confluence} readOnly={readOnly} onChange={(e) => update(v.id, { confluence: e.target.value })} />
                 </label>
                 <label className="col-span-2">
                   <span className="label !mb-0.5 px-2">观察</span>
-                  <input className="cell" value={v.note} readOnly={readOnly} onChange={(e) => update(v.id, { note: e.target.value })} placeholder="备注" />
+                  <input className="cell" value={v.note} readOnly={readOnly} onChange={(e) => update(v.id, { note: e.target.value })} />
                 </label>
               </div>
               {!readOnly && <RowDelete onClick={() => { pushUndo('删除容器', () => set(structuredClone(data.vessels))); set(data.vessels.filter((x) => x.id !== v.id)) }} label="删除容器" />}

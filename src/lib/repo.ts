@@ -2,9 +2,8 @@ import { db } from './db'
 import type { AuditEntry, Block, Experiment, Project, Reagent, Schedule, Snapshot, StoredFile, Template } from './types'
 import { hashString, now, todayStr, uid } from './util'
 import { kindOf, PROJECT_COLORS } from './kinds'
-import { convert } from './units'
 import { saveState } from './saveState'
-import { blockUsages, cloneBlockData, defOf } from '@/blocks/defs'
+import { cloneBlockData } from '@/blocks/defs'
 
 export const TRASH_DAYS = 30
 const POS_STEP = 1024
@@ -145,14 +144,12 @@ export async function restoreExperiment(id: string) {
 }
 
 export async function purgeExperiment(id: string) {
-  await db.transaction('rw', [db.experiments, db.blocks, db.snapshots, db.usages, db.audit, db.files, db.schedules], async () => {
+  await db.transaction('rw', [db.experiments, db.blocks, db.snapshots, db.audit, db.files, db.schedules], async () => {
     const blocks = await db.blocks.where('experimentId').equals(id).toArray()
     const fileIds = blocks.flatMap((b) => collectFileIds(b))
     await db.files.bulkDelete(fileIds)
     await db.blocks.where('experimentId').equals(id).delete()
     await db.snapshots.where('experimentId').equals(id).delete()
-    // 试剂已实际消耗，库存不回补；只断开引用
-    await db.usages.where('experimentId').equals(id).delete()
     await db.audit.where('experimentId').equals(id).delete()
     await db.schedules.where('experimentId').equals(id).modify({ experimentId: null })
     await db.experiments.delete(id)
@@ -265,7 +262,6 @@ export async function saveBlockData(id: string, data: unknown) {
   if (!b) return
   await db.blocks.update(id, { data, updatedAt: now() })
   await touchExperiment(b.experimentId)
-  if (hasUsage(b.type)) await syncBlockUsage(id)
 }
 
 export async function deleteBlock(id: string) {
@@ -273,7 +269,6 @@ export async function deleteBlock(id: string) {
   if (!b) return
   const t = now()
   await db.blocks.update(id, { deletedAt: t, updatedAt: t })
-  if (hasUsage(b.type)) await syncBlockUsage(id)
   await touchExperiment(b.experimentId)
 }
 
@@ -282,7 +277,6 @@ export async function restoreBlock(id: string) {
   if (!b) return
   const t = now()
   await db.blocks.update(id, { deletedAt: null, updatedAt: t })
-  if (hasUsage(b.type)) await syncBlockUsage(id)
 }
 
 export async function purgeBlock(id: string) {
@@ -318,47 +312,10 @@ export async function restoreReagent(id: string) {
   await db.reagents.update(id, { deletedAt: null, updatedAt: t })
 }
 export async function purgeReagent(id: string) {
-  await db.transaction('rw', db.reagents, db.usages, async () => {
-    await db.usages.where('reagentId').equals(id).delete()
+  await db.transaction('rw', db.reagents, async () => {
     await db.reagents.delete(id)
   })
 }
-
-export const hasUsage = (type: string) => !!defOf(type)?.usages
-
-/**
- * 让某个「试剂消耗」块的库存记账与块内容一致：先把旧扣减全部归还，再按当前内容重新扣减。
- * 幂等：同样的内容重复调用，库存不变。块被删除时等价于全部归还。
- */
-export async function syncBlockUsage(blockId: string) {
-  await db.transaction('rw', db.blocks, db.usages, db.reagents, async () => {
-    const block = await db.blocks.get(blockId)
-    const old = await db.usages.where('blockId').equals(blockId).toArray()
-    for (const u of old) {
-      const r = await db.reagents.get(u.reagentId)
-      if (r && r.stockQty !== null && u.deducted) await db.reagents.update(r.id, { stockQty: round(r.stockQty + u.deducted) })
-    }
-    await db.usages.where('blockId').equals(blockId).delete()
-    if (!block || block.deletedAt) return
-    const items = blockUsages(block.type, block.data)
-    const t = now()
-    for (const it of items) {
-      const r = await db.reagents.get(it.reagentId)
-      if (!r) continue
-      let deducted = 0
-      if (r.stockQty !== null) {
-        const c = convert(it.amount, it.unit || r.stockUnit, r.stockUnit)
-        if (c !== null) {
-          deducted = round(c)
-          await db.reagents.update(r.id, { stockQty: round(r.stockQty - deducted) })
-        }
-      }
-      await db.usages.put({ id: `${blockId}:${it.itemId}`, reagentId: r.id, experimentId: block.experimentId, blockId, itemId: it.itemId, amount: it.amount, unit: it.unit, deducted, createdAt: t })
-    }
-  })
-}
-
-const round = (n: number) => Math.round(n * 1e6) / 1e6
 
 // ───────────────────────── 日程 ─────────────────────────
 
@@ -439,9 +396,6 @@ export async function restoreSnapshotInPlace(snapshotId: string) {
     await db.experiments.update(s.experimentId, { title: s.payload.experiment.title, tags: s.payload.experiment.tags, updatedAt: t })
   })
   await audit(s.experimentId, '恢复旧版本', new Date(s.createdAt).toLocaleString('zh-CN'))
-  for (const b of await liveBlocks(s.experimentId)) if (hasUsage(b.type)) await syncBlockUsage(b.id)
-  for (const b of await db.blocks.where('experimentId').equals(s.experimentId).toArray())
-    if (hasUsage(b.type) && b.deletedAt) await syncBlockUsage(b.id)
 }
 
 export async function restoreSnapshotAsNew(snapshotId: string) {
@@ -481,9 +435,9 @@ export async function purgeExpiredTrash(days = TRASH_DAYS) {
 
 // ───────────────────────── 杂项 ─────────────────────────
 
-/** 块内复制：保留内容，但扣减勾选类状态清空，避免重复扣库存 */
+/** 块内复制：保留结构配置，清掉运行痕迹 */
 export function cloneForDuplicate(b: Block) {
-  return hasUsage(b.type) ? cloneBlockData(b.type, b.data) : structuredClone(b.data)
+  return cloneBlockData(b.type, b.data)
 }
 
 export async function saveStateFlush() {

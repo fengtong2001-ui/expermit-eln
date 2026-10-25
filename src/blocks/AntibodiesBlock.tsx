@@ -17,6 +17,18 @@ export function AntibodiesBlock({ data, onChange, readOnly }: BlockEditorProps<A
 
   return (
     <Panel>
+      <div className="hidden items-center gap-2 border-b border-slate-100 px-3 py-2 text-[11px] font-medium text-slate-500 sm:flex dark:border-slate-800">
+        <span className="w-[84px] shrink-0" />
+        <div className="flex min-w-44 flex-1 items-center">
+          <span className="flex-1">靶点</span>
+          <span className="shrink-0 px-2">试剂库</span>
+        </div>
+        <span className="w-20 shrink-0">宿主</span>
+        <span className="shrink-0 pl-5">稀释</span>
+        <span className="w-[72px] shrink-0 pl-4">体积</span>
+        <span className="w-28 shrink-0">原液</span>
+        <span className="w-8 shrink-0" />
+      </div>
       <div className="divide-y divide-slate-100 dark:divide-slate-800">
         {data.items.map((a) => {
           const r = a.reagentId ? reagents.get(a.reagentId) : undefined
@@ -33,7 +45,7 @@ export function AntibodiesBlock({ data, onChange, readOnly }: BlockEditorProps<A
                   <span className="text-[13px] font-medium">{r?.name ?? a.name}</span>
                 ) : (
                   <div className="flex items-center gap-1">
-                    <input value={a.name} onChange={(e) => update(a.id, { name: e.target.value, reagentId: r && e.target.value !== r.name ? null : a.reagentId })} placeholder="靶点" aria-label="抗体名称" className="cell font-medium" />
+                    <input value={a.name} onChange={(e) => update(a.id, { name: e.target.value, reagentId: r && e.target.value !== r.name ? null : a.reagentId })} aria-label="抗体名称" className="cell font-medium" />
                     <ReagentPicker onPick={(x) => update(a.id, { reagentId: x.id, name: x.name })}>
                       <button className="flex h-8 shrink-0 cursor-pointer items-center gap-0.5 rounded-md px-2 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800">
                         试剂库 <ChevronDown className="size-3" />
@@ -47,7 +59,7 @@ export function AntibodiesBlock({ data, onChange, readOnly }: BlockEditorProps<A
                   </p>
                 )}
               </div>
-              <input value={a.host} readOnly={readOnly} onChange={(e) => update(a.id, { host: e.target.value })} placeholder="宿主" aria-label="宿主" className="cell w-20" />
+              <input value={a.host} readOnly={readOnly} onChange={(e) => update(a.id, { host: e.target.value })} aria-label="宿主" className="cell w-20" />
               <div className="flex items-center text-[13px] text-slate-500">
                 1 :
                 <NumInput value={a.dilution} onChange={(dilution) => update(a.id, { dilution })} readOnly={readOnly} label="稀释倍数" className="w-20" />
@@ -65,10 +77,6 @@ export function AntibodiesBlock({ data, onChange, readOnly }: BlockEditorProps<A
                   '—'
                 )}
               </span>
-              <label className="flex items-center gap-1.5 text-xs text-slate-500" title="勾选后按原液用量从试剂库扣减">
-                <input type="checkbox" checked={a.used} disabled={readOnly} onChange={(e) => update(a.id, { used: e.target.checked })} className="size-4 accent-brand-600" />
-                已用
-              </label>
               {!readOnly && <RowDelete onClick={() => { pushUndo('删除抗体', () => onChange(structuredClone(data))); onChange({ items: data.items.filter((x) => x.id !== a.id) }) }} label="删除抗体" />}
             </div>
           )

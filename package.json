@@ -1,7 +1,7 @@
 {
   "name": "expermit-eln",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -92,7 +92,8 @@
       ]
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
       "runAfterFinish": true,
       "artifactName": "ExPermit-Setup-${version}.exe"
     },

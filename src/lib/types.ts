@@ -60,18 +60,6 @@ export interface Reagent {
   deletedAt?: number | null
 }
 
-export interface Usage {
-  id: ID
-  reagentId: ID
-  experimentId: ID
-  blockId: ID
-  itemId: string
-  amount: number
-  unit: string
-  deducted: number
-  createdAt: number
-}
-
 export interface Schedule {
   id: ID
   date: string
