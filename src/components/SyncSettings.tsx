@@ -167,7 +167,7 @@ export function SyncSettings() {
         </div>
       </div>
 
-      <p className="text-xs font-medium text-slate-400">— 或新建一套同步 —</p>
+      <p className="text-xs font-medium text-slate-500">— 或新建一套同步 —</p>
 
       <Segmented
         value={provider}

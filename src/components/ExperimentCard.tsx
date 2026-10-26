@@ -41,12 +41,13 @@ export function ExperimentCard({ e, project }: { e: Experiment; project?: Projec
           className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
         >
           <div className="flex items-center gap-2">
+            <span className="eyebrow font-mono tracking-wide">{e.code}</span>
             <Badge className={KIND_STYLES[k.color].badge}>{k.label}</Badge>
             <StatusBadge status={e.status} />
           </div>
-          <h3 className="mt-2.5 line-clamp-2 text-[15px] leading-snug font-semibold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{e.title}</h3>
+          <h3 className="mt-2 line-clamp-2 text-[15.5px] leading-snug font-semibold tracking-[-0.01em] text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{e.title}</h3>
           {e.tags.length > 0 && <p className="mt-1.5 truncate text-xs text-slate-500">{e.tags.map((t) => `#${t}`).join('  ')}</p>}
-          <div className="mt-auto flex items-center gap-2 pt-4 text-xs text-slate-500">
+          <div className="num mt-auto flex items-center gap-2 pt-4 text-xs text-slate-500">
             {project && (
               <span className="flex min-w-0 items-center gap-1.5">
                 <span className={cn('size-1.5 shrink-0 rounded-full', KIND_STYLES[project.color]?.dot)} />

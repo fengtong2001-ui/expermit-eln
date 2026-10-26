@@ -201,7 +201,7 @@ export function Shell() {
         <div className="space-y-2 px-3">
           <Button variant="primary" className="w-full justify-start" onClick={() => ui.openNewExperiment()}>
             <Plus /> 新建实验
-            <span className="ml-auto text-xs font-normal text-white/70">N</span>
+            <span className="ml-auto text-xs font-normal text-white/85">N</span>
           </Button>
           <button
             onClick={() => ui.openPalette()}
@@ -339,7 +339,7 @@ export function Shell() {
                 to={t.to}
                 end={t.end}
                 className={({ isActive }) =>
-                  cn('flex flex-col items-center justify-center gap-1 text-[11px] font-medium [&_svg]:size-5', isActive ? 'text-brand-600 dark:text-brand-400' : 'text-slate-500')
+                  cn('flex flex-col items-center justify-center gap-1 text-[11px] font-medium [&_svg]:size-5', isActive ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500')
                 }
               >
                 {t.icon}

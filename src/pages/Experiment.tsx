@@ -203,7 +203,9 @@ export function ExperimentPage() {
 
       <div className="mx-auto max-w-3xl px-4 pt-8 pb-32 md:px-8 lg:pl-20">
         {/* —— 题头 —— */}
-        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        <div className="mb-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+          <span className="font-mono text-[11px] tracking-wide text-slate-500 dark:text-slate-400">{exp.code}</span>
+          <span className="h-3 w-px bg-slate-200 dark:bg-slate-700" aria-hidden />
           <Badge className={KIND_STYLES[kind.color].badge}>{kind.label}</Badge>
           <StatusPicker status={exp.status} onChange={async (s) => {
             if (s === 'done') return complete()
@@ -211,9 +213,9 @@ export function ExperimentPage() {
             if (exp.status === 'done' || exp.status === 'archived') await repo.reopenExperiment(exp.id)
             await repo.updateExperiment(exp.id, { status: s })
           }} />
-          <span className="font-mono text-[11px] text-slate-500">{exp.code}</span>
-          <span className="text-slate-400">·</span>
-          <span title={formatDateTime(exp.updatedAt)}>编辑于 {relativeTime(exp.updatedAt)}</span>
+          <span className="eyebrow num" title={formatDateTime(exp.updatedAt)}>
+            编辑于 {relativeTime(exp.updatedAt)}
+          </span>
           <div className="sm:hidden">
             <SaveIndicator />
           </div>
@@ -324,8 +326,8 @@ export function ExperimentPage() {
 
         <div className="mt-8 h-px bg-slate-100 dark:bg-slate-800" />
 
-        {/* —— 内容块 —— */}
-        <div className="mt-8 space-y-10">
+        {/* —— 内容块 —— 桌面端左侧是记录本页边线，块标签压在上面 */}
+        <div className="record-rail mt-8 space-y-10 lg:pl-5">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} modifiers={[restrictToVerticalAxis]}>
             <SortableContext items={ordered.map((b) => b.id)} strategy={verticalListSortingStrategy}>
               {ordered.map((b, i) => (
@@ -397,7 +399,7 @@ function TitleEditor({ id, value, readOnly }: { id: string; value: string; readO
         }
       }}
       onBlur={() => void save.flush()}
-      className="block w-full resize-none overflow-hidden bg-transparent text-[28px] leading-tight font-semibold tracking-tight text-slate-900 outline-none placeholder:text-slate-300 dark:text-white"
+      className="display block w-full resize-none overflow-hidden bg-transparent text-slate-900 outline-none placeholder:text-slate-300 dark:text-white"
     />
   )
 }

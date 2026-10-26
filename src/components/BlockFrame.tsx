@@ -7,7 +7,7 @@ import { defOf, type BlockType } from '@/blocks/defs'
 import { EDITORS, FallbackIcon, ICONS } from '@/blocks/registry'
 import { saveBlockData } from '@/lib/repo'
 import { useDebouncedSave } from '@/lib/useDebouncedSave'
-import { cn } from '@/lib/util'
+import { cn, formatTime } from '@/lib/util'
 import { Button, Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger, Tip } from './ui'
 import { InsertPopover } from './BlockMenu'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from './context-menu'
@@ -114,7 +114,13 @@ export function BlockFrame({ block, kind, readOnly, highlighted, onInsertAfter, 
 
         {/* 块头：类型 + 菜单 */}
         <div className="mb-2 flex h-7 items-center gap-2">
-          <span className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+          {/* 桌面：标签压在页边线上，带这块内容的最后保存时间 */}
+          <span className="eyebrow -ml-5 hidden items-center gap-1.5 bg-white pr-2.5 lg:inline-flex dark:bg-slate-950">
+            <Icon className="size-3.5" />
+            {def?.label ?? '未知内容'}
+            <span className="font-mono text-[10px] font-normal opacity-60">{formatTime(block.updatedAt)}</span>
+          </span>
+          <span className="eyebrow inline-flex items-center gap-1.5 lg:hidden">
             <Icon className="size-3.5" />
             {def?.label ?? '未知内容'}
           </span>

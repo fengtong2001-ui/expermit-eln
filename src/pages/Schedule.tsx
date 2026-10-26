@@ -108,14 +108,14 @@ export function SchedulePage() {
                       'group flex min-h-16 cursor-pointer flex-col items-stretch gap-0.5 border-slate-100 p-1.5 text-left transition sm:min-h-24 dark:border-slate-800',
                       i % 7 !== 6 && 'border-r',
                       i < cells.length - 7 && 'border-b',
-                      !c.inMonth && 'bg-slate-50/60 text-slate-400 dark:bg-slate-900/40 dark:text-slate-600',
+                      !c.inMonth && 'bg-slate-50/60 text-slate-500 dark:bg-slate-900/40 dark:text-slate-400',
                       isSel ? 'bg-brand-50/70 dark:bg-brand-500/10' : 'hover:bg-slate-50 dark:hover:bg-slate-900',
                     )}
                   >
                     <span
                       className={cn(
                         'flex size-6 items-center justify-center rounded-full text-xs font-medium tabular-nums',
-                        c.date === today ? 'bg-brand-600 text-white' : isSel ? 'text-brand-700 dark:text-brand-300' : '',
+                        c.date === today ? 'bg-brand-700 text-white' : isSel ? 'text-brand-700 dark:text-brand-300' : '',
                       )}
                     >
                       {c.day}
@@ -162,7 +162,7 @@ export function SchedulePage() {
         <aside className="rounded-2xl border border-slate-200 bg-white p-4 lg:self-start dark:border-slate-800 dark:bg-slate-900">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-sm font-semibold">
-              {sm} 月 {sd} 日{selected === today && <span className="ml-1.5 text-xs font-normal text-brand-600">今天</span>}
+              {sm} 月 {sd} 日{selected === today && <span className="ml-1.5 text-xs font-normal text-brand-700 dark:text-brand-300">今天</span>}
             </h3>
             <Button size="sm" variant="ghost" onClick={() => ui.openNewExperiment({ date: selected })}>
               <FlaskConical /> 新建实验

@@ -51,10 +51,10 @@ export function TodayPage() {
       <PageHeader title="今天" />
       <div className="mx-auto max-w-6xl px-4 py-8 md:px-8">
         <div className="mb-8">
-          <p className="text-sm text-slate-500">
+          <p className="eyebrow">
             {d.getMonth() + 1} 月 {d.getDate()} 日 · 星期{WEEK[d.getDay()]}
           </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">{greeting()}</h1>
+          <h1 className="display mt-1 text-slate-900 dark:text-white">{greeting()}</h1>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_340px]">
