@@ -61,10 +61,10 @@ export function SchedulePage() {
   return (
     <div>
       <PageHeader title="日程" />
-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-6 md:px-8 lg:grid-cols-[1fr_360px]">
+      <div className="mx-auto grid max-w-6xl gap-4 px-4 py-4 md:gap-6 md:px-8 md:py-6 lg:grid-cols-[1fr_360px]">
         <section>
-          <div className="mb-3 flex items-center gap-2">
-            <h2 className="text-lg font-semibold tracking-tight">
+          <div className="mb-2 flex items-center gap-2 md:mb-3">
+            <h2 className="text-base font-semibold tracking-tight md:text-lg">
               {cursor.y} 年 {cursor.m + 1} 月
             </h2>
             <div className="ml-auto flex items-center gap-1">
@@ -105,7 +105,7 @@ export function SchedulePage() {
                     onClick={() => pick(c.date)}
                     onDoubleClick={() => ui.openNewExperiment({ date: c.date })}
                     className={cn(
-                      'group flex min-h-16 cursor-pointer flex-col items-stretch gap-0.5 border-slate-100 p-1.5 text-left transition sm:min-h-24 dark:border-slate-800',
+                      'group flex min-h-12 cursor-pointer flex-col items-stretch gap-0.5 border-slate-100 p-1.5 text-left transition sm:min-h-24 dark:border-slate-800',
                       i % 7 !== 6 && 'border-r',
                       i < cells.length - 7 && 'border-b',
                       !c.inMonth && 'bg-slate-50/60 text-slate-500 dark:bg-slate-900/40 dark:text-slate-400',
@@ -156,15 +156,15 @@ export function SchedulePage() {
               })}
             </div>
           </div>
-          <p className="mt-2 text-xs text-slate-500">双击日期可直接新建当天的实验</p>
+          <p className="mt-2 hidden text-xs text-slate-500 md:block">双击日期可直接新建当天的实验</p>
         </section>
 
-        <aside className="rounded-2xl border border-slate-200 bg-white p-4 lg:self-start dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-3 flex items-center justify-between">
+        <aside className="rounded-2xl border border-slate-200 bg-white p-3 md:p-4 lg:self-start dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-2 flex items-center justify-between md:mb-3">
             <h3 className="text-sm font-semibold">
               {sm} 月 {sd} 日{selected === today && <span className="ml-1.5 text-xs font-normal text-brand-700 dark:text-brand-300">今天</span>}
             </h3>
-            <Button size="sm" variant="ghost" onClick={() => ui.openNewExperiment({ date: selected })}>
+            <Button size="sm" variant="ghost" className="max-md:hidden" onClick={() => ui.openNewExperiment({ date: selected })}>
               <FlaskConical /> 新建实验
             </Button>
           </div>

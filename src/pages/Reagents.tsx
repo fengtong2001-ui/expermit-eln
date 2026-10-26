@@ -209,9 +209,9 @@ export function ReagentsPage() {
           </Button>
         }
       />
-      <div className="mx-auto max-w-6xl px-4 py-6 md:px-8">
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-48 flex-1 sm:max-w-72">
+      <div className="mx-auto max-w-6xl px-4 py-4 md:px-8 md:py-6">
+        <div className="mb-3 flex flex-wrap items-center gap-2 md:mb-4">
+          <div className="relative min-w-0 flex-1 sm:max-w-72">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-slate-500" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="搜索" className="field pl-8" />
           </div>
@@ -250,7 +250,35 @@ export function ReagentsPage() {
         ) : list.length === 0 ? (
           <EmptyState icon={<Search />} title="没有符合条件的试剂" />
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-800">
+          <>
+            <div className="space-y-2 md:hidden">
+              {list.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setSp({ id: r.id })}
+                  className="flex w-full items-start gap-3 rounded-xl border border-slate-200 bg-white p-3 text-left transition active:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:active:bg-slate-800"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-medium text-slate-900 dark:text-white">{r.name}</span>
+                      <AlertBadges r={r} />
+                    </div>
+                    <div className="mt-1 truncate text-xs text-slate-500">
+                      {[r.category, r.vendor, r.lot].filter(Boolean).join(' · ') || '—'}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-500">
+                      {r.expiry && <span>效期 {r.expiry}</span>}
+                      {r.storage && <span className="truncate">{r.storage}</span>}
+                      {r.location && <span className="truncate">· {r.location}</span>}
+                    </div>
+                  </div>
+                  <div className={cn('shrink-0 text-right text-[13px] font-medium tabular-nums', r.stockQty !== null && r.stockQty < 0 ? 'text-rose-600' : 'text-slate-700 dark:text-slate-200')}>
+                    {r.stockQty !== null ? `${formatQty(r.stockQty)} ${r.stockUnit}` : <span className="font-normal text-slate-400">—</span>}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto rounded-2xl border border-slate-200 md:block dark:border-slate-800">
             <table className="w-full min-w-[760px] text-left text-[13px]">
               <thead className="border-b border-slate-200 bg-slate-50 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900">
                 <tr>
@@ -283,7 +311,8 @@ export function ReagentsPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
       <ReagentDialog id={editing} open={!!editing || creating} onClose={close} />

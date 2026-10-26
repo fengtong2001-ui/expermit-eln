@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
-import { FlaskConical, LayoutGrid, List, MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react'
+import { FlaskConical, LayoutGrid, List, MoreHorizontal, Pencil, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useExperiments, useProjects } from '@/lib/hooks'
 import { KIND_STYLES, KINDS, STATUS_META, kindOf } from '@/lib/kinds'
@@ -9,7 +9,7 @@ import { ui } from '@/lib/ui-store'
 import { deleteProject, updateProject } from '@/lib/repo'
 import { PageHeader } from '@/components/Shell'
 import { ExperimentCard, StatusBadge } from '@/components/ExperimentCard'
-import { Badge, Button, EmptyState, Menu, MenuContent, MenuItem, MenuTrigger, Segmented } from '@/components/ui'
+import { Badge, Button, Dialog, EmptyState, Field, Menu, MenuContent, MenuItem, MenuTrigger, Segmented } from '@/components/ui'
 import { promptDialog } from '@/components/prompt'
 import { confirmDialog } from '@/components/confirm'
 import type { ExperimentStatus } from '@/lib/types'
@@ -23,11 +23,19 @@ export function ExperimentsPage() {
   const exps = useExperiments()
   const projects = useProjects()
   const project = projects.find((p) => p.id === projectId)
-  const [view, setView] = useState<'grid' | 'table'>(() => (localStorage.getItem('eln-view') as 'grid' | 'table') || 'grid')
+  const [view, setView] = useState<'grid' | 'table'>(() => {
+    const wide =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(min-width: 768px)').matches
+    if (!wide) return 'grid'
+    return (localStorage.getItem('eln-view') as 'grid' | 'table') || 'grid'
+  })
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<ExperimentStatus | 'active' | 'all'>('active')
   const [kind, setKind] = useState('all')
   const [sort, setSort] = useState<Sort>('updated')
+  const [filterOpen, setFilterOpen] = useState(false)
 
   const list = useMemo(() => {
     let l = exps ?? []
@@ -108,20 +116,23 @@ export function ExperimentsPage() {
                 </MenuContent>
               </Menu>
             )}
-            <Button variant="primary" onClick={() => ui.openNewExperiment({ projectId })} className="hidden sm:inline-flex">
+            <Button variant="primary" onClick={() => ui.openNewExperiment({ projectId })} className="max-md:hidden">
               <Plus /> 新建实验
             </Button>
           </>
         }
       />
-      <div className="mx-auto max-w-6xl px-4 py-6 md:px-8">
+      <div className="mx-auto max-w-6xl px-4 py-4 md:px-8 md:py-6">
         {/* 筛选条 */}
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <div className="relative min-w-48 flex-1 sm:max-w-64">
+        <div className="mb-3 flex flex-wrap items-center gap-2 md:mb-5">
+          <div className="relative min-w-0 flex-1 sm:max-w-64">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-slate-500" />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="筛选标题、编号、标签" className="field pl-8" />
           </div>
-          <div className="flex gap-1 overflow-x-auto">
+          <Button variant="secondary" size="icon" className="size-11 md:hidden" aria-label="筛选与排序" onClick={() => setFilterOpen(true)}>
+            <SlidersHorizontal />
+          </Button>
+          <div className="flex w-full gap-1 overflow-x-auto md:w-auto">
             {(
               [
                 ['active', `全部 ${counts.active}`],
@@ -135,7 +146,7 @@ export function ExperimentsPage() {
                 key={v}
                 onClick={() => setStatus(v)}
                 className={cn(
-                  'h-8 shrink-0 cursor-pointer rounded-lg px-2.5 text-[13px] font-medium whitespace-nowrap transition',
+                  'h-9 shrink-0 cursor-pointer rounded-lg px-2.5 text-[13px] font-medium whitespace-nowrap transition md:h-8',
                   status === v ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800',
                 )}
               >
@@ -143,7 +154,7 @@ export function ExperimentsPage() {
               </button>
             ))}
           </div>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto hidden items-center gap-2 md:flex">
             <select className="field h-8 w-auto text-[13px]" value={kind} onChange={(e) => setKind(e.target.value)} aria-label="实验类型">
               <option value="all">所有类型</option>
               {KINDS.map((k) => (
@@ -181,6 +192,7 @@ export function ExperimentsPage() {
                 </Button>
               )
             }
+            actionClassName="hidden md:block"
           />
         ) : view === 'grid' ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -231,6 +243,38 @@ export function ExperimentsPage() {
         )}
         {STATUS_META && null}
       </div>
+
+      <Dialog
+        open={filterOpen}
+        onOpenChange={setFilterOpen}
+        title="筛选与排序"
+        footer={
+          <Button variant="primary" onClick={() => setFilterOpen(false)}>
+            完成
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <Field label="实验类型">
+            <select className="field" value={kind} onChange={(e) => setKind(e.target.value)}>
+              <option value="all">所有类型</option>
+              {KINDS.map((k) => (
+                <option key={k.id} value={k.id}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="排序">
+            <select className="field" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+              <option value="updated">最近编辑</option>
+              <option value="created">最近创建</option>
+              <option value="planned">计划日期</option>
+              <option value="title">标题</option>
+            </select>
+          </Field>
+        </div>
+      </Dialog>
     </div>
   )
 }

@@ -38,16 +38,19 @@ export function ExperimentCard({ e, project }: { e: Experiment; project?: Projec
       <ContextMenuTrigger asChild>
         <Link
           to={`/experiments/${e.id}`}
-          className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-4 transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+          className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3 transition hover:border-slate-300 hover:shadow-md md:flex-col md:items-stretch md:gap-0 md:rounded-2xl md:p-4 md:hover:-translate-y-0.5 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
         >
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 flex-col items-start gap-1 md:flex-row md:items-center md:gap-2">
             <span className="eyebrow font-mono tracking-wide">{e.code}</span>
-            <Badge className={KIND_STYLES[k.color].badge}>{k.label}</Badge>
+            <Badge className={cn(KIND_STYLES[k.color].badge, 'max-md:hidden')}>{k.label}</Badge>
             <StatusBadge status={e.status} />
           </div>
-          <h3 className="mt-2 line-clamp-2 text-[15.5px] leading-snug font-semibold tracking-[-0.01em] text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">{e.title}</h3>
-          {e.tags.length > 0 && <p className="mt-1.5 truncate text-xs text-slate-500">{e.tags.map((t) => `#${t}`).join('  ')}</p>}
-          <div className="num mt-auto flex items-center gap-2 pt-4 text-xs text-slate-500">
+          <div className="min-w-0 flex-1 md:mt-2">
+            <h3 className="line-clamp-1 text-[14px] leading-snug font-semibold tracking-[-0.01em] text-slate-900 group-hover:text-brand-700 md:line-clamp-2 md:text-[15.5px] dark:text-white dark:group-hover:text-brand-300">{e.title}</h3>
+            {e.tags.length > 0 && <p className="mt-1 hidden truncate text-xs text-slate-500 md:block">{e.tags.map((t) => `#${t}`).join('  ')}</p>}
+          </div>
+          <span className="num shrink-0 text-[11px] text-slate-500 md:hidden">{relativeTime(e.updatedAt)}</span>
+          <div className="num mt-auto hidden items-center gap-2 pt-4 text-xs text-slate-500 md:flex">
             {project && (
               <span className="flex min-w-0 items-center gap-1.5">
                 <span className={cn('size-1.5 shrink-0 rounded-full', KIND_STYLES[project.color]?.dot)} />

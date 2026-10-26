@@ -254,13 +254,27 @@ export function Badge({ className, children }: { className?: string; children: R
   return <span className={cn('inline-flex h-5 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium whitespace-nowrap', className)}>{children}</span>
 }
 
-export function EmptyState({ icon, title, hint, action }: { icon: ReactNode; title: string; hint?: ReactNode; action?: ReactNode }) {
+export function EmptyState({
+  icon,
+  title,
+  hint,
+  action,
+  actionClassName,
+  className,
+}: {
+  icon: ReactNode
+  title: string
+  hint?: ReactNode
+  action?: ReactNode
+  actionClassName?: string
+  className?: string
+}) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
-      <div className="mb-4 flex size-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-slate-800 [&_svg]:size-6">{icon}</div>
+    <div className={cn('flex flex-col items-center justify-center px-6 py-8 text-center md:py-14', className)}>
+      <div className="mb-3 flex size-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 md:mb-4 md:size-12 dark:bg-slate-800 [&_svg]:size-5 md:[&_svg]:size-6">{icon}</div>
       <p className="text-sm font-medium text-slate-700 dark:text-slate-200">{title}</p>
       {hint && <p className="mt-1 max-w-sm text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">{hint}</p>}
-      {action && <div className="mt-5">{action}</div>}
+      {action && <div className={cn('mt-4 md:mt-5', actionClassName)}>{action}</div>}
     </div>
   )
 }
