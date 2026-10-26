@@ -3,7 +3,7 @@ import * as RMenu from '@radix-ui/react-dropdown-menu'
 import * as RPopover from '@radix-ui/react-popover'
 import * as RTooltip from '@radix-ui/react-tooltip'
 import { X } from 'lucide-react'
-import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { forwardRef, type ButtonHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from 'react'
 import { cn } from '@/lib/util'
 
 // ───────────── Button ─────────────
@@ -70,6 +70,32 @@ export function Tip({ label, children, side = 'top' }: { label: ReactNode; child
 }
 
 export const TooltipProvider = RTooltip.Provider
+
+/** 与 Tip 相同，但用 content 属性传提示文案，便于表格内联使用 */
+export function Tooltip({ content, side = 'top', children }: { content: ReactNode; side?: 'top' | 'bottom' | 'left' | 'right'; children: ReactNode }) {
+  return (
+    <Tip label={content} side={side}>
+      {children}
+    </Tip>
+  )
+}
+
+// ───────────── Select ─────────────
+
+/** 原生 select 的统一外观，保留浏览器原生下拉与键盘操作 */
+export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
+      className={cn(
+        'h-9 cursor-pointer rounded-lg border border-slate-200 bg-white px-2 text-[13px] text-slate-700 outline-none transition focus:border-brand-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200',
+        className,
+      )}
+      {...rest}
+    >
+      {children}
+    </select>
+  )
+}
 
 // ───────────── Dialog ─────────────
 

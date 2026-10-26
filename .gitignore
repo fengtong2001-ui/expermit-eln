@@ -9,6 +9,7 @@ coverage
 
 # 原生壳构建产物
 native/mac/ExPermit.app
+native/mac/*.dmg
 native/ios/ExPermit/www
 
 # Windows 桌面打包产物

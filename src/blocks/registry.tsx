@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { Beaker, Calculator, Dna, FileImage, FlaskRound, Grid3x3, ListChecks, Rows3, Syringe, Table2, Type } from 'lucide-react'
+import { Beaker, Calculator, Dna, FileImage, FlaskConical, FlaskRound, Grid3x3, ListChecks, Rows3, Syringe, Table2, Type } from 'lucide-react'
 import type { BlockType } from './defs'
 import type { BlockEditorProps } from './types'
 import { TextBlock } from './TextBlock'
@@ -12,6 +12,7 @@ import { LanesBlock } from './LanesBlock'
 import { AntibodiesBlock } from './AntibodiesBlock'
 import { QpcrBlock } from './QpcrBlock'
 import { CultureBlock } from './CultureBlock'
+import { BcaBlock } from './BcaBlock'
 
 export { cloneBlockData } from './defs'
 
@@ -26,6 +27,7 @@ export const EDITORS: Record<BlockType, ComponentType<BlockEditorProps<any>>> = 
   antibodies: AntibodiesBlock,
   qpcr: QpcrBlock,
   culture: CultureBlock,
+  bca: BcaBlock,
 }
 
 export const ICONS: Record<BlockType, ComponentType<{ className?: string }>> = {
@@ -39,6 +41,7 @@ export const ICONS: Record<BlockType, ComponentType<{ className?: string }>> = {
   antibodies: Syringe,
   qpcr: Calculator,
   culture: FlaskRound,
+  bca: FlaskConical,
 }
 
 export const FallbackIcon = Dna

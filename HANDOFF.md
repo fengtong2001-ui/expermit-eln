@@ -33,6 +33,8 @@ ExPermit 实验记录本：**本地优先**的电子实验记录本（ELN），�
 electron/main.cjs        桌面壳：app:// 协议、selftest、--sync、IPC（更新/热更/数据目录）、热更 staged 切换
 electron/preload.cjs     contextBridge → window.expermitDesktop（desktop.ts 是其类型）
 src/lib/undo.ts          全局撤回栈（pushUndo/undoById/popUndo/useUndoTop）
+src/lib/bca.ts           BCA 蛋白定量：标曲拟合、浓度回算、WB 上样配平
+src/blocks/BcaBlock.tsx  BCA 实验块（OD 粘贴、右键菜单、撤销接入）
 src/lib/updater.ts       检查更新（api.github.com releases/latest）+ 升级编排（热更→exe→浏览器）
 src/lib/scheduleDone.ts  日程完成态唯一权威（与实验状态双向联动）
 src/lib/repo.ts          所有 Dexie 写操作；软删除+30天回收站；快照
@@ -77,6 +79,8 @@ node scripts/make_release.mjs
 # 6. CI 等绿（api.github.com/actions/runs，npm install 不是 npm ci——见坑⑨）
 # 7. 复制 release/ExPermit-Setup-<ver>.exe 与 Portable 到桌面 D:\Table，删旧版本
 ```
+
+macOS 两种壳：Electron 版 `npm run dist:mac`（功能对齐 Windows，含检查更新/数据位置迁移，未签名需右键打开）；`native/mac/build.sh` 是更轻的 Swift 原生壳（Liquid Glass、⌘Z 焦点分流、原生文件面板，但**没有**桌面更新与数据位置迁移）。
 
 热更新机制（v0.1.4 起，务必理解再动更新相关代码）：客户端从 **codeload 拉 tag zipball** → 解出 `release-assets/www-<ver>.zip` → 写 `resources/update-staged` → relaunch → 启动早期 `applyStagedUpdate()` 原子切换 `www`。壳（electron/*.cjs）变更时：`release-assets/shell-min.json` 的 `shellFrom` 要求 > `main.cjs` 的 `SHELL_CAP` → 客户端回落完整安装包。**改了壳就必须：升 SHELL_CAP + 发完整包**；只改网页层则热更即可，用户无感升级。
 

@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "desktop": "electron .",
     "desktop:selftest": "electron . --selftest",
-    "dist:win": "electron-builder --win"
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac dmg"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
@@ -102,6 +103,10 @@
     },
     "portable": {
       "artifactName": "ExPermit-Portable-${version}.exe"
+    },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "artifactName": "ExPermit-${version}-${arch}.${ext}"
     }
   }
 }

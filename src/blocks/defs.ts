@@ -1,6 +1,7 @@
 // 块类型的纯逻辑定义（不含 React），供仓库层、搜索、导出、测试共用
 import { uid } from '@/lib/util'
 import type { QpcrRow } from '@/lib/qpcr'
+import { BCA_STD_PRESETS, type BcaFitModel, type BcaSampleRow, type BcaStandardRow, type BcaUnit, type LoadingBufferConc } from '@/lib/bca'
 
 export interface TextData { html: string }
 export interface FileItem { id: string; fileId: string; name: string; mime: string; size: number; caption: string }
@@ -20,8 +21,23 @@ export interface AntibodiesData { items: Antibody[] }
 export interface QpcrData { reference: string; control: string; replicates: number; rows: QpcrRow[] }
 export interface Vessel { id: string; vessel: string; cellLine: string; passage: string; seededOn: string; density: string; confluence: string; note: string }
 export interface CultureData { vessels: Vessel[] }
+export interface BcaData {
+  title: string
+  wavelengthNm: number
+  unit: BcaUnit
+  replicates: number
+  subtractBlank: boolean
+  fitModel: BcaFitModel
+  cvThreshold: number
+  wbEnabled: boolean
+  wbTargetMassUg: number | null
+  wbTotalVolUl: number | null
+  wbBufferX: LoadingBufferConc
+  standards: BcaStandardRow[]
+  samples: BcaSampleRow[]
+}
 
-export type BlockType = 'text' | 'files' | 'table' | 'plate' | 'reagents' | 'protocol' | 'lanes' | 'antibodies' | 'qpcr' | 'culture'
+export type BlockType = 'text' | 'files' | 'table' | 'plate' | 'reagents' | 'protocol' | 'lanes' | 'antibodies' | 'qpcr' | 'culture' | 'bca'
 
 export interface BlockDef<T = any> {
   type: BlockType
@@ -45,6 +61,21 @@ export const newReagentLine = (): ReagentLine => ({ id: uid(), reagentId: null, 
 export const newAntibody = (kind: '一抗' | '二抗' = '一抗'): Antibody => ({ id: uid(), kind, reagentId: null, name: '', host: '', dilution: null, volumeMl: null, note: '', used: true })
 export const newVessel = (vessel = 'T25 培养瓶'): Vessel => ({ id: uid(), vessel, cellLine: '', passage: '', seededOn: '', density: '', confluence: '', note: '' })
 export const newQpcrRow = (replicates = 3): QpcrRow => ({ id: uid(), sample: '', group: '', target: '', cts: Array(replicates).fill(null) })
+export const newBcaStandardRows = (unit: BcaUnit = 'µg/mL', replicates = 3): BcaStandardRow[] =>
+  BCA_STD_PRESETS[unit].map((p) => ({
+    id: uid(),
+    label: p.label,
+    conc: p.conc,
+    ods: Array(replicates).fill(null),
+    enabled: true,
+  }))
+export const newBcaSampleRow = (replicates = 3, index = 1): BcaSampleRow => ({
+  id: uid(),
+  sample: `Sample ${index}`,
+  group: '',
+  dilution: 5,
+  ods: Array(replicates).fill(null),
+})
 
 export const DEFS: Record<BlockType, BlockDef> = {
   text: {
@@ -147,6 +178,41 @@ export const DEFS: Record<BlockType, BlockDef> = {
     clone: (d: QpcrData) => ({ ...d, rows: d.rows.map((r) => ({ ...r, id: uid(), cts: r.cts.map(() => null) })) }),
     text: (d: QpcrData) => join(d.reference, d.control, d.rows.map((r) => join(r.sample, r.group, r.target)).join(' ')),
   },
+  bca: {
+    type: 'bca',
+    label: 'BCA 蛋白定量',
+    description: '酶标仪标准曲线拟合与 WB 上样体系自动配平',
+    keywords: 'bca bradford elisa od 562 595 蛋白定量 酶标仪 标准曲线 标曲 wb 上样',
+    group: '分析',
+    create: (): BcaData => ({
+      title: '',
+      wavelengthNm: 562,
+      unit: 'µg/mL',
+      replicates: 3,
+      subtractBlank: true,
+      fitModel: 'linear',
+      cvThreshold: 10,
+      wbEnabled: true,
+      wbTargetMassUg: 20,
+      wbTotalVolUl: 40,
+      wbBufferX: 5,
+      standards: newBcaStandardRows('µg/mL', 3),
+      samples: [newBcaSampleRow(3, 1), newBcaSampleRow(3, 2), newBcaSampleRow(3, 3)],
+    }),
+    clone: (d: BcaData) => ({
+      ...d,
+      standards: d.standards.map((s) => ({ ...s, id: uid(), ods: s.ods.map(() => null), enabled: true })),
+      samples: d.samples.map((s) => ({ ...s, id: uid(), ods: s.ods.map(() => null) })),
+    }),
+    text: (d: BcaData) =>
+      join(
+        d.title,
+        `${d.wavelengthNm}nm`,
+        d.unit,
+        d.standards.map((s) => s.label).join(' '),
+        d.samples.map((s) => join(s.sample, s.group)).join(' '),
+      ),
+  },
 }
 
 /** 一抗/二抗工作液中原液体积（µL）= 工作液体积(mL) × 1000 / 稀释倍数 */
@@ -155,7 +221,7 @@ export function antibodyMicroliters(a: Pick<Antibody, 'dilution' | 'volumeMl'>) 
   return Math.round(((a.volumeMl * 1000) / a.dilution) * 1000) / 1000
 }
 
-export const BLOCK_ORDER: BlockType[] = ['text', 'files', 'table', 'protocol', 'plate', 'culture', 'reagents', 'antibodies', 'lanes', 'qpcr']
+export const BLOCK_ORDER: BlockType[] = ['text', 'files', 'table', 'protocol', 'plate', 'culture', 'reagents', 'antibodies', 'lanes', 'qpcr', 'bca']
 
 /** 不同实验类型推荐的块，排在插入菜单最前 */
 export const RECOMMENDED: Record<string, BlockType[]> = {
@@ -163,7 +229,7 @@ export const RECOMMENDED: Record<string, BlockType[]> = {
   wb: ['protocol', 'lanes', 'antibodies', 'files'],
   qpcr: ['qpcr', 'plate', 'reagents'],
   cell: ['culture', 'plate', 'protocol'],
-  assay: ['plate', 'table', 'reagents'],
+  assay: ['bca', 'plate', 'table', 'reagents'],
 }
 
 export function defOf(type: string): BlockDef | null {

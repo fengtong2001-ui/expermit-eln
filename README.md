@@ -65,7 +65,7 @@ npm run build      # 产物在 dist/，纯静态文件，可放到任何静态�
 ## 打包成桌面 / 手机应用
 
 - **Windows**：`npm install && npm run build && npm run dist:win` 一键打出 `release/ExPermit-Setup-<版本>.exe`（一键安装版，装到开始菜单）和 `release/ExPermit-Portable-<版本>.exe`（免安装便携版，双击即用）。Electron 壳，数据存在应用自己的目录里。命令行跑 `"ExPermit 实验记录本.exe" --selftest` 可做无头自检；`--sync '<配置JSON>'` 可在启动前导入同步配置（与 macOS 壳同参数）。
-- **macOS**：`./native/mac/build.sh` 一键构建出 `native/mac/ExPermit.app`（系统 WebKit 原生壳，约 1.5MB，无需安装任何依赖）。双击运行，可拖进「应用程序」。命令行跑 `ExPermit.app/Contents/MacOS/ExPermit --selftest` 可做无头自检。
+- **macOS**：`npm install && npm run build && npm run dist:mac` 打出 `release/ExPermit-<版本>-<架构>.dmg`（Electron 壳，与 Windows 版同功能：检查更新、数据位置迁移、原生文件面板）。未做开发者签名，首次打开若被 Gatekeeper 拦，右键 → 打开。另有一份更轻量的原生壳：`./native/mac/build.sh` 生成 `native/mac/ExPermit.app`（约 1.5MB，Liquid Glass 外观、原生菜单与 ⌘Z 焦点分流；**不含**桌面版自动更新和数据位置迁移），`ExPermit.app/Contents/MacOS/ExPermit --selftest` 可做无头自检。
 - **iOS**：`./native/ios/build.sh` 会把网页拷进 Xcode 工程（`native/ios/ExPermit.xcodeproj`）。本机没装 Xcode 时只准备资源并打印操作说明；装好 Xcode 后打开工程、在 Signing 里选自己的 Apple ID（免费账号即可），连手机按 ⌘R 安装。免费账号安装的应用 7 天过期，重新运行即可。
 - 不装 Xcode 的替代方案：iPhone 用 Safari 打开线上地址 → 分享 → 添加到主屏幕，即可全屏离线使用（PWA）。
 - 三个壳都用 `app://local` 协议加载本地网页：数据存在应用自己的沙盒里，和浏览器版互不相通；GitHub 同步在壳内可用（已实测）。

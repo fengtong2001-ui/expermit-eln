@@ -37,6 +37,16 @@ import { promptDialog } from './prompt'
 import { toast } from 'sonner'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from './context-menu'
 
+/** 手动同步：侧栏按钮与原生菜单「立即同步」共用 */
+function runManualSync() {
+  void syncNow('manual')
+    .then((r) => {
+      const parts = [r.pulled ? `接收 ${r.pulled} 项` : '', r.uploadedFiles ? `上传 ${r.uploadedFiles} 个附件` : '', r.downloadedFiles ? `下载 ${r.downloadedFiles} 个附件` : ''].filter(Boolean)
+      toast.success(parts.length ? `同步完成：${parts.join('，')}` : '同步完成，两边内容一致')
+    })
+    .catch(() => {})
+}
+
 function NavItem({ to, icon, children, end, badge }: { to: string; icon: ReactNode; children: ReactNode; end?: boolean; badge?: ReactNode }) {
   return (
     <NavLink
@@ -121,6 +131,9 @@ export function Shell() {
 
   useEffect(() => {
     const fn = (e: KeyboardEvent) => {
+      // 中文/日文输入法组词选词时不响应任何快捷键
+      if (e.isComposing || e.keyCode === 229) return
+
       const mod = e.metaKey || e.ctrlKey
       if (mod && e.key.toLowerCase() === 'k') {
         e.preventDefault()
@@ -137,8 +150,18 @@ export function Shell() {
         ui.openNewExperiment()
       }
     }
+    // 原生菜单栏事件桥接（见 native/mac/main.swift）
+    const onNativeNewExperiment = () => ui.openNewExperiment()
+    const onNativeSync = () => runManualSync()
+
     window.addEventListener('keydown', fn)
-    return () => window.removeEventListener('keydown', fn)
+    window.addEventListener('expermit:new-experiment', onNativeNewExperiment)
+    window.addEventListener('expermit:sync-now', onNativeSync)
+    return () => {
+      window.removeEventListener('keydown', fn)
+      window.removeEventListener('expermit:new-experiment', onNativeNewExperiment)
+      window.removeEventListener('expermit:sync-now', onNativeSync)
+    }
   }, [])
 
   const addProject = async () => {
@@ -166,8 +189,9 @@ export function Shell() {
     <div className="flex h-dvh overflow-hidden">
       {/* —— 侧栏（≥ md） —— */}
       <aside className="no-print hidden w-60 shrink-0 flex-col border-r border-slate-200/80 bg-slate-50 md:flex dark:border-slate-800 dark:bg-slate-900/60">
-        <div className="flex h-14 items-center gap-2.5 px-4">
-          <img src="favicon.svg" alt="" className="size-7" />
+        {/* 顶部拖拽区：原生壳里按住这一行可拖动窗口 */}
+        <div data-mac-drag-region="true" className="flex min-h-14 items-center gap-2.5 px-4 select-none">
+          <img src="favicon.svg" alt="" className="size-7" draggable={false} />
           <div className="leading-tight">
             <div className="text-sm font-semibold text-slate-900 dark:text-white">ExPermit</div>
             <div className="text-[11px] text-slate-500">实验记录本</div>
@@ -257,14 +281,7 @@ export function Shell() {
         <div className="space-y-0.5 border-t border-slate-200/80 p-3 dark:border-slate-800">
           {syncStatus.kind !== 'unconfigured' && (
             <button
-              onClick={() =>
-                void syncNow('manual')
-                  .then((r) => {
-                    const parts = [r.pulled ? `接收 ${r.pulled} 项` : '', r.uploadedFiles ? `上传 ${r.uploadedFiles} 个附件` : '', r.downloadedFiles ? `下载 ${r.downloadedFiles} 个附件` : ''].filter(Boolean)
-                    toast.success(parts.length ? `同步完成：${parts.join('，')}` : '同步完成，两边内容一致')
-                  })
-                  .catch(() => {})
-              }
+              onClick={runManualSync}
               className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-lg px-2.5 text-left text-[13px] transition hover:bg-slate-200/50 dark:hover:bg-slate-800/60"
               title={syncStatus.kind === 'error' ? syncStatus.message : syncStatus.kind === 'idle' && syncStatus.lastSync ? `上次同步 ${new Date(syncStatus.lastSync).toLocaleString('zh-CN')}` : '点击立即同步'}
             >
@@ -343,7 +360,7 @@ export function Shell() {
 /** 页面标题栏：面包屑 + 右侧操作 + 保存状态 */
 export function PageHeader({ title, sub, actions, children }: { title?: ReactNode; sub?: ReactNode; actions?: ReactNode; children?: ReactNode }) {
   return (
-    <header className="no-print sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-950/85">
+    <header data-mac-drag-region="true" className="no-print sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur-lg dark:border-slate-800 dark:bg-slate-950/85">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 md:px-8">
         {children ?? (
           <div className="min-w-0 flex-1">

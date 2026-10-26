@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid'
 import { clsx, type ClassValue } from 'clsx'
+import { isNativeMac, saveBlobNatively } from './native'
 
 export const uid = () => nanoid(12)
 export const now = () => Date.now()
@@ -51,6 +52,11 @@ export function formatBytes(n: number) {
 }
 
 export function downloadBlob(blob: Blob, filename: string) {
+  // macOS 原生壳里走 NSSavePanel，避免 WKWebView 对 app:// 页面下载支持不佳
+  if (isNativeMac()) {
+    void saveBlobNatively(blob, filename)
+    return
+  }
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
