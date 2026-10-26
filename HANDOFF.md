@@ -112,3 +112,19 @@ macOS 两种壳：Electron 版 `npm run dist:mac`（功能对齐 Windows，含�
 - 远端 main = 本地内容一致（API 快照推送，sha 不同属正常，别尝试 pull --rebase 以外的骚操作；git 通道恢复时直接 push 会 non-FF，先 `git fetch && git reset --soft origin/main` 并轨）
 - `PENDING.md` 当前为空，等下一批
 - 遗留可做：坚果云 WebDAV 桌面版同步接入方案已分析完（见记忆/会话，结论：main 进程 net.fetch 无 CORS，加 `sync:http` IPC 即可，约半天）——用户尚未点头
+
+## 9. 仓库拆分（2026-10-26）
+
+核心仓不再直接出安装包，只出**核心制品**；各平台仓只放壳与打包流水线（源码不复制，数据模型/同步协议永远一致）：
+
+| 仓库 | 内容 | 打包入口 |
+|---|---|---|
+| `expermit-eln`（本仓） | 网页版 + Electron 壳源码（`electron/`） | `npm run build && node scripts/pack-artifacts.mjs` → `artifacts/www-<ver>.zip`、`shell-<ver>.zip` |
+| `expermit-mac` | Electron 打包 + Swift 原生壳（`native/mac` 已迁过去） | Actions → Build macOS（填版本） |
+| `expermit-win` | NSIS 安装版 + 免安装版 | Actions → Build Windows（填版本） |
+| `expermit-ios` | Xcode 工程（WKWebView 壳） | Actions → Build iOS（模拟器编译校验）；真机需本地 Xcode 签名 |
+
+- 核心仓 Release 发布时，`core-artifacts.yml` 会自动把 `www-<ver>.zip` 与 `shell-<ver>.zip` 附加到该 Release（也可以手动 dispatch）。**`make_release.mjs` 照旧可用**，发布事件会触发该工作流。
+- 平台仓用 `scripts/fetch-core.mjs`（iOS 为 `fetch-www.mjs`）从核心 Release 下载制品；本地开发可加 `--core ../expermit-eln` 直接用本地 `dist/`。
+- 升级指向：`electron/main.cjs` 读取应用内 `resources/update-config.json` 的 `installerRepo`（平台仓各自填自己），决定“完整安装包/下载页”指向哪个仓；热更新仍从核心仓拉网页包。缺该文件时行为与拆分前完全一致。
+- 本仓已移除 `native/mac`、`native/ios`、`macos-build.yml`。壳代码仍在 `electron/`（Web/桌面的共同基础），改壳需按 §5 升 `SHELL_CAP` 并发完整包。
