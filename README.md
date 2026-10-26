@@ -71,7 +71,7 @@ npm run build      # 产物在 dist/，纯静态文件，可放到任何静态�
 | **expermit-eln**（本仓） | 网页版源码、Electron 壳源码、核心制品发布（`www-<ver>.zip` / `shell-<ver>.zip`） |
 | [expermit-mac](https://github.com/fengtong2001-ui/expermit-mac) | macOS 打包：Electron dmg + Swift 原生壳 |
 | [expermit-win](https://github.com/fengtong2001-ui/expermit-win) | Windows 打包：NSIS 安装版 + 免安装版 |
-| [expermit-ios](https://github.com/fengtong2001-ui/expermit-ios) | iOS 壳（Xcode 工程），待 Xcode 签名出包 |
+| [expermit-ios](https://github.com/fengtong2001-ui/expermit-ios) | iOS 壳（Xcode 工程）：模拟器编译校验 + 未签名 IPA，真机需本地签名 |
 | expermit-android（规划中） | Android 壳 |
 
 核心发版（tag `v<ver>` 或手动 dispatch）会自动把 `www-<ver>.zip` 与 `shell-<ver>.zip`
@@ -80,8 +80,8 @@ npm run build      # 产物在 dist/，纯静态文件，可放到任何静态�
 ## 打包成桌面 / 手机应用
 
 - **Windows**：`npm install && npm run build && npm run dist:win` 一键打出 `release/ExPermit-Setup-<版本>.exe`（一键安装版，装到开始菜单）和 `release/ExPermit-Portable-<版本>.exe`（免安装便携版，双击即用）。Electron 壳，数据存在应用自己的目录里。命令行跑 `"ExPermit 实验记录本.exe" --selftest` 可做无头自检；`--sync '<配置JSON>'` 可在启动前导入同步配置（与 macOS 壳同参数）。
-- **macOS**：`npm install && npm run build && npm run dist:mac` 打出 `release/ExPermit-<版本>-<架构>.dmg`（Electron 壳，与 Windows 版同功能：检查更新、数据位置迁移、原生文件面板）。未做开发者签名，首次打开若被 Gatekeeper 拦，右键 → 打开。另有一份更轻量的原生壳：`./native/mac/build.sh` 生成 `native/mac/ExPermit.app`（约 1.5MB，Liquid Glass 外观、原生菜单与 ⌘Z 焦点分流；**不含**桌面版自动更新和数据位置迁移），`ExPermit.app/Contents/MacOS/ExPermit --selftest` 可做无头自检。
-- **iOS**：`./native/ios/build.sh` 会把网页拷进 Xcode 工程（`native/ios/ExPermit.xcodeproj`）。本机没装 Xcode 时只准备资源并打印操作说明；装好 Xcode 后打开工程、在 Signing 里选自己的 Apple ID（免费账号即可），连手机按 ⌘R 安装。免费账号安装的应用 7 天过期，重新运行即可。
+- **macOS**：`npm install && npm run build && npm run dist:mac` 打出 `release/ExPermit-<版本>-<架构>.dmg`（Electron 壳，与 Windows 版同功能：检查更新、数据位置迁移、原生文件面板）。未做开发者签名，首次打开若被 Gatekeeper 拦，右键 → 打开。更轻量的原生 Swift 壳（Liquid Glass 外观、原生菜单与 ⌘Z 焦点分流；**不含**桌面版自动更新和数据位置迁移）已迁到 [expermit-mac](https://github.com/fengtong2001-ui/expermit-mac)，`./native/mac/build.sh` 在该仓。
+- **iOS**：源码在 [expermit-ios](https://github.com/fengtong2001-ui/expermit-ios)（Xcode 工程 + WKWebView 壳）。在该仓 `npm install && node scripts/fetch-www.mjs --ver <版本>` 取本仓网页制品，打开 `ExPermit.xcodeproj`，在 Signing 里选自己的 Apple ID（免费账号即可），连手机按 ⌘R 安装。免费账号安装的应用 7 天过期，重新运行即可。
 - 不装 Xcode 的替代方案：iPhone 用 Safari 打开线上地址 → 分享 → 添加到主屏幕，即可全屏离线使用（PWA）。
 - 三个壳都用 `app://local` 协议加载本地网页：数据存在应用自己的沙盒里，和浏览器版互不相通；GitHub 同步在壳内可用（已实测）。
 
