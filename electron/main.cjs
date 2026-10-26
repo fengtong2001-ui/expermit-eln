@@ -62,6 +62,22 @@ const selftest = process.argv.includes('--selftest')
 const syncJson = argValue('--sync')
 const wwwArg = argValue('--www')
 
+// 平台仓可覆盖“完整安装包 / 下载页”指向的仓库（热更新仍走核心仓，网页层是共享的）。
+// 打包时把 resources/update-config.json 放进应用即可；没有则沿用核心仓，行为与以前一致。
+function readUpdateConfig() {
+  const candidates = app.isPackaged
+    ? [path.join(process.resourcesPath, 'update-config.json')]
+    : [path.join(__dirname, '..', 'resources', 'update-config.json')]
+  for (const f of candidates) {
+    try {
+      const j = JSON.parse(fs.readFileSync(f, 'utf8'))
+      if (typeof j.installerRepo === 'string' && j.installerRepo) return j.installerRepo
+    } catch {}
+  }
+  return null
+}
+const installerRepo = readUpdateConfig()
+
 let win = null
 
 // —— 数据存储位置：marker（写在 userData 之外，固定可达）指向自定义目录 ——
@@ -216,7 +232,10 @@ function startApp() {
       contextIsolation: true,
       nodeIntegration: false,
       spellcheck: false,
-      additionalArguments: syncJson ? [`--sync-json=${encodeURIComponent(syncJson)}`] : [],
+      additionalArguments: [
+        ...(syncJson ? [`--sync-json=${encodeURIComponent(syncJson)}`] : []),
+        ...(installerRepo ? [`--installer-repo=${encodeURIComponent(installerRepo)}`] : []),
+      ],
     },
   })
   win.setName?.('ExPermit')

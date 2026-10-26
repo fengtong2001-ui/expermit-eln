@@ -62,6 +62,21 @@ npm run build      # 产物在 dist/，纯静态文件，可放到任何静态�
 
 同步是本地优先的行级合并，不是整库覆盖：两台设备各自改动会合并成并集，同一行以修改时间新的为准；删除会以墓碑形式同步并在 30 天后彻底清理。令牌 / 密码只保存在各自设备的浏览器 localStorage 里。
 
+## 仓库拆分（2026-10-26）
+
+网页层与 Electron 壳源码在本仓；各平台只做打包，源码不复制，数据模型与同步协议永远一致：
+
+| 仓库 | 内容 |
+|---|---|
+| **expermit-eln**（本仓） | 网页版源码、Electron 壳源码、核心制品发布（`www-<ver>.zip` / `shell-<ver>.zip`） |
+| [expermit-mac](https://github.com/fengtong2001-ui/expermit-mac) | macOS 打包：Electron dmg + Swift 原生壳 |
+| [expermit-win](https://github.com/fengtong2001-ui/expermit-win) | Windows 打包：NSIS 安装版 + 免安装版 |
+| [expermit-ios](https://github.com/fengtong2001-ui/expermit-ios) | iOS 壳（Xcode 工程），待 Xcode 签名出包 |
+| expermit-android（规划中） | Android 壳 |
+
+核心发版（tag `v<ver>` 或手动 dispatch）会自动把 `www-<ver>.zip` 与 `shell-<ver>.zip`
+附加到 Release；平台仓点一次「Run workflow」即可取制品打包并发布自己平台的安装包。
+
 ## 打包成桌面 / 手机应用
 
 - **Windows**：`npm install && npm run build && npm run dist:win` 一键打出 `release/ExPermit-Setup-<版本>.exe`（一键安装版，装到开始菜单）和 `release/ExPermit-Portable-<版本>.exe`（免安装便携版，双击即用）。Electron 壳，数据存在应用自己的目录里。命令行跑 `"ExPermit 实验记录本.exe" --selftest` 可做无头自检；`--sync '<配置JSON>'` 可在启动前导入同步配置（与 macOS 壳同参数）。

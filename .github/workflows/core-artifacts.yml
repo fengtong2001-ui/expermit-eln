@@ -1,0 +1,41 @@
+# 核心仓发布制品：网页包 + Electron 壳
+# 触发：核心仓发布 Release 时自动附加；或手动 dispatch（可选 version，默认取 package.json）
+name: Core artifacts
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 版本号（不带 v，留空取 package.json）
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      # 不用 npm ci：npm 11 的 lock 在 Linux 上会缺 Tailwind oxide wasm32 的可选依赖
+      - run: npm install
+      - run: npm run build
+      - name: 打包制品
+        run: node scripts/pack-artifacts.mjs ${{ inputs.version && format('--ver {0}', inputs.version) || '' }}
+      - name: 附加到 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER="${{ inputs.version }}"
+          if [ -z "$VER" ]; then VER=$(node -p "require('./package.json').version"); fi
+          TAG="v$VER"
+          # Release 不存在时先创建（dispatch 手动发版的场景）
+          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes "核心制品 v$VER"
+          gh release upload "$TAG" artifacts/www-"$VER".zip artifacts/shell-"$VER".zip --clobber
+          echo "已上传 www-$VER.zip / shell-$VER.zip 到 $TAG"

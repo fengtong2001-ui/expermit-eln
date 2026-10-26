@@ -2,6 +2,9 @@ import { toast } from 'sonner'
 import { desktop } from './desktop'
 
 const REPO = 'fengtong2001-ui/expermit-eln'
+/** 完整安装包与下载页所在仓库：平台仓打包时可覆盖（如 expermit-win / expermit-mac） */
+const installerRepo = () => desktop?.installerRepo ?? REPO
+const installerPage = () => `https://github.com/${installerRepo()}/releases/latest`
 
 export interface ReleaseInfo {
   version: string
@@ -47,7 +50,7 @@ export function markChecked() {
 /** 有新版本时的完整升级流程：优先热更新（秒级，走稳定通道）；壳变更或热更失败回落完整安装包；再失败才打开下载页 */
 export async function downloadAndInstall(setupUrl: string | null, version: string) {
   if (!desktop) {
-    window.open(`https://github.com/${REPO}/releases/latest`, '_blank')
+    window.open(installerPage(), '_blank')
     return
   }
   const id = toast.loading('正在下载更新…', { duration: Infinity })
@@ -67,7 +70,7 @@ export async function downloadAndInstall(setupUrl: string | null, version: strin
     await desktop.installUpdate(file)
   } catch {
     toast.error('更新下载失败，已打开下载页面', { id, duration: 10000 })
-    void window.open(`https://github.com/${REPO}/releases/latest`, '_blank')
+    void window.open(installerPage(), '_blank')
   } finally {
     off()
   }

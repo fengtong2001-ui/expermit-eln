@@ -10,8 +10,14 @@ if (arg) {
   try { localStorage.setItem('eln-sync-config', decodeURIComponent(arg.slice(PREFIX.length))) } catch {}
 }
 
+// 平台仓可指定“完整安装包 / 下载页”所在仓库（如 fengtong2001-ui/expermit-win）
+const IR_PREFIX = '--installer-repo='
+const irArg = process.argv.find((a) => typeof a === 'string' && a.startsWith(IR_PREFIX))
+const installerRepo = irArg ? decodeURIComponent(irArg.slice(IR_PREFIX.length)) : undefined
+
 // 桌面能力（网页侧通过 window.expermitDesktop 使用；网页版为 undefined）
 contextBridge.exposeInMainWorld('expermitDesktop', {
+  installerRepo,
   getInfo: () => ipcRenderer.invoke('app:info'),
   downloadUpdate: (url) => ipcRenderer.invoke('update:download', url),
   installUpdate: (exePath) => ipcRenderer.invoke('update:install', exePath),
